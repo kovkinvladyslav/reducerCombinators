@@ -1,6 +1,6 @@
 # Try 1: Staged FPGA-Small CALL
 
-Current status: `planned`
+Current status: `csynth_passed`
 
 Branch: `try1`
 
@@ -11,6 +11,9 @@ Architecture: staged single-lane `CALL`
 | Date | Status | Evidence |
 | --- | --- | --- |
 | 2026-05-25 | `planned` | Staged `CALL` architecture plan recorded before implementation. |
+| 2026-05-25 | `implemented` | Staged single-lane `CALL` path, config, and architecture note added. |
+| 2026-05-25 | `csim_passed` | Full CSIM and FPGA-small staged-call CSIM passed with `Overall Result: PASS`. |
+| 2026-05-25 | `csynth_passed` | `hls_config_synth_fpga_small_staged_call.cfg` completed C synthesis and generated reports. |
 
 ## Goal
 
@@ -213,33 +216,57 @@ Main loop II: 4
 
 ## Results
 
-Fill this after implementation.
-
-- Host syntax:
-- Host execution:
-- Full CSIM:
-- FPGA-small CSIM:
-- CSYNTH:
+- Host syntax: passed for full profile and `-DFPGA_SMALL_PROFILE=1 -DENABLE_STAGED_CALL=1`.
+- Host link build: passed for full and FPGA-small staged-call builds.
+- Host execution: blocked by Windows Application Control for locally built `.exe` files.
+- Full CSIM: passed with `Overall Result: PASS` in `interactReduce_csim_full_try1`.
+- FPGA-small CSIM: passed with `Overall Result: PASS` in `interactReduce_csim_small_try1`.
+- CSYNTH: passed in `interactReduce_csynth_small_staged_call_try1`.
 
 ## HLS Evidence
 
-Fill this when reports or logs exist.
-
-- Work directory:
+- Work directory: `interactReduce_csynth_small_staged_call_try1`
 - Report paths:
-- LUT:
-- FF:
-- DSP:
-- BRAM:
-- II:
-- Timing/slack:
-- Last Vitis log line if frozen:
+  - `interactReduce_csynth_small_staged_call_try1/hls/syn/report/csynth.rpt`
+  - `interactReduce_csynth_small_staged_call_try1/hls/syn/report/reducer_core_csynth.rpt`
+  - `interactReduce_csynth_small_staged_call_try1/hls/syn/report/csynth_design_size.rpt`
+- LUT: `7804` (`37%` of `xc7a35t-cpg236-1`)
+- FF: `3254` (`7%`)
+- DSP: `2` (`2%`)
+- BRAM: `0` internal BRAM reported
+- II: target `1`, final `4`
+- II violation type: memory dependency on `redex_memory`
+- Timing/slack: estimated clock `11.309 ns` for a `10 ns` target; summary slack `-4.01`
+- Design size: `59645` compile/link instructions, reduced to `1438` after HW transforms
+- Last Vitis log line if frozen: not applicable; synthesis completed.
+
+Comparison control:
+
+```text
+small no-statistics/no-CALL control:
+LUT 4202, FF 2283, DSP 2, II 4
+
+try1 staged CALL:
+LUT 7804, FF 3254, DSP 2, II 4
+```
+
+Interpretation:
+
+The staged `CALL` path removed the previous HLS freeze/explosion mode. Resource
+use increased over the no-`CALL` control, as expected, but remained far below
+the old full inline synthesis result and completed on the Artix-7 target. The
+remaining II limit is the known active-pair queue memory dependency, not packed
+book expansion.
 
 ## Conclusion
 
-Pending implementation.
+Try1 succeeded as an architecture experiment. It preserves functional `CALL`
+behavior in CSIM and makes the FPGA-small `CALL` path synthesizable by turning
+book expansion into a bounded staged service.
 
 ## Next Recommendation
 
-Pending implementation result.
-
+Next work should not repeat the inline/staged distinction. The next useful
+architecture step is queue/memory hardening: separate active-pair pop from
+produced-pair pushback so the main loop can attack the remaining `redex_memory`
+II dependency.

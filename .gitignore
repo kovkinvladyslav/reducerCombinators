@@ -1,0 +1,31 @@
+# Ignore build output directory
+/build
+/export
+/.cache
+/.Xil
+/interactReduce
+/interactReduce_csim*/
+/interactReduce_csynth*/
+/interactReduce_parallel
+
+# Ignore object files and dependent files
+*.o
+*.d
+*.exe
+
+#Ignore logs folder and log files
+/logs
+*.log
+
+#Ignore lock files
+*.lock
+
+*.bin
+*.pdi
+.vitisWorkspace.json
+compile_commands.json
+dfx_runtime.txt
+vitis-comp.json
+
+_ide/logs
+_ide/.wsdata
