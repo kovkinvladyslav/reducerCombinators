@@ -87,6 +87,33 @@ static inline void record_reducer_completed_step(ap_uint<32>* executed_steps) {
   *executed_steps = *executed_steps + 1;
 }
 
+#if ENABLE_PRODUCED_PAIR_BUFFER
+static inline void activate_produced_pair_flush(
+    ProducedPairCount* produced_pair_flush_index,
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+    ReducerServicePhase* reducer_service_phase,
+#endif
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+    ap_uint<1>* buffered_rule_is_call,
+    ap_uint<1> rule_is_call
+#else
+    InteractionRuleKind* buffered_rule_kind,
+    InteractionRuleKind interaction_rule_kind
+#endif
+) {
+#pragma HLS INLINE
+  *produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+  *reducer_service_phase = REDUCER_SERVICE_FLUSH;
+#endif
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+  *buffered_rule_is_call = rule_is_call;
+#else
+  *buffered_rule_kind = interaction_rule_kind;
+#endif
+}
+#endif
+
 extern "C" void reducer_core(
     PackedNode node_memory[MAXIMUM_NODE_COUNT],
     Port substitution_memory[MAXIMUM_VARIABLE_COUNT],
@@ -300,15 +327,19 @@ extern "C" void reducer_core(
           &call_state);
       if (interaction_result.success &&
           !produced_active_pairs_are_empty(&produced_active_pairs)) {
-        produced_pair_flush_index = 0;
+        activate_produced_pair_flush(
+            &produced_pair_flush_index,
 #if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
-        reducer_service_phase = REDUCER_SERVICE_FLUSH;
+            &reducer_service_phase,
 #endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
-        buffered_rule_is_call = 1;
+            &buffered_rule_is_call,
+            1
 #else
-        buffered_rule_kind = interaction_rule_kind;
+            &buffered_rule_kind,
+            interaction_rule_kind
 #endif
+        );
         continue;
       }
       if (!interaction_result.success) {
@@ -392,15 +423,19 @@ extern "C" void reducer_core(
               right_port);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_flush_index = 0;
+            activate_produced_pair_flush(
+                &produced_pair_flush_index,
 #if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
-            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+                &reducer_service_phase,
 #endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
-            buffered_rule_is_call = 0;
+                &buffered_rule_is_call,
+                0
 #else
-            buffered_rule_kind = interaction_rule_kind;
+                &buffered_rule_kind,
+                interaction_rule_kind
 #endif
+            );
             interaction_completed = 0;
           }
 #else
@@ -426,15 +461,19 @@ extern "C" void reducer_core(
               right_port);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_flush_index = 0;
+            activate_produced_pair_flush(
+                &produced_pair_flush_index,
 #if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
-            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+                &reducer_service_phase,
 #endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
-            buffered_rule_is_call = 0;
+                &buffered_rule_is_call,
+                0
 #else
-            buffered_rule_kind = interaction_rule_kind;
+                &buffered_rule_kind,
+                interaction_rule_kind
 #endif
+            );
             interaction_completed = 0;
           }
 #else
@@ -457,15 +496,19 @@ extern "C" void reducer_core(
               right_port);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_flush_index = 0;
+            activate_produced_pair_flush(
+                &produced_pair_flush_index,
 #if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
-            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+                &reducer_service_phase,
 #endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
-            buffered_rule_is_call = 0;
+                &buffered_rule_is_call,
+                0
 #else
-            buffered_rule_kind = interaction_rule_kind;
+                &buffered_rule_kind,
+                interaction_rule_kind
 #endif
+            );
             interaction_completed = 0;
           }
 #else
@@ -492,15 +535,19 @@ extern "C" void reducer_core(
               right_port);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_flush_index = 0;
+            activate_produced_pair_flush(
+                &produced_pair_flush_index,
 #if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
-            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+                &reducer_service_phase,
 #endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
-            buffered_rule_is_call = 0;
+                &buffered_rule_is_call,
+                0
 #else
-            buffered_rule_kind = interaction_rule_kind;
+                &buffered_rule_kind,
+                interaction_rule_kind
 #endif
+            );
             interaction_completed = 0;
           }
 #else
@@ -531,15 +578,19 @@ extern "C" void reducer_core(
               reducer_statistics);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_flush_index = 0;
+            activate_produced_pair_flush(
+                &produced_pair_flush_index,
 #if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
-            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+                &reducer_service_phase,
 #endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
-            buffered_rule_is_call = 0;
+                &buffered_rule_is_call,
+                0
 #else
-            buffered_rule_kind = interaction_rule_kind;
+                &buffered_rule_kind,
+                interaction_rule_kind
 #endif
+            );
             interaction_completed = 0;
           }
 #else
@@ -570,15 +621,19 @@ extern "C" void reducer_core(
               &local_status_code);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_flush_index = 0;
+            activate_produced_pair_flush(
+                &produced_pair_flush_index,
 #if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
-            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+                &reducer_service_phase,
 #endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
-            buffered_rule_is_call = 0;
+                &buffered_rule_is_call,
+                0
 #else
-            buffered_rule_kind = interaction_rule_kind;
+                &buffered_rule_kind,
+                interaction_rule_kind
 #endif
+            );
             interaction_completed = 0;
           }
 #else
@@ -612,15 +667,19 @@ extern "C" void reducer_core(
               &call_state);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_flush_index = 0;
+            activate_produced_pair_flush(
+                &produced_pair_flush_index,
 #if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
-            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+                &reducer_service_phase,
 #endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
-            buffered_rule_is_call = 1;
+                &buffered_rule_is_call,
+                1
 #else
-            buffered_rule_kind = interaction_rule_kind;
+                &buffered_rule_kind,
+                interaction_rule_kind
 #endif
+            );
           }
 #if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
           if (interaction_result.success &&

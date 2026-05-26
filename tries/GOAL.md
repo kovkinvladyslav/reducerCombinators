@@ -37,6 +37,13 @@ Long-term constraints:
 - Preserve existing full-profile correctness behavior.
 - Prefer small, measurable architecture changes.
 - Run CSIM before synthesis when possible.
+- Use full-profile CSIM as the semantic guard, FPGA-small CSIM as the gated
+  architecture guard, and FPGA-small CSYNTH as the primary synthesis measurement
+  for queue/control/runtime tries.
+- Do not repeat full-profile CSYNTH for every small architecture try. Run it
+  only at milestones or when the change touches full-only behavior, because the
+  full profile is already known to be dominated by F24/div/rem/`fmod` and full
+  numeric datapaths.
 - If synthesis freezes or fails, still document and commit the try as evidence.
 
 Diploma documentation goals:
@@ -59,4 +66,3 @@ For every try, update its `tryN.md` with:
 - last Vitis log line if synthesis freezes
 - conclusion
 - next recommended architecture
-

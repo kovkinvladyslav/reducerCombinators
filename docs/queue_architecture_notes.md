@@ -411,3 +411,39 @@ baseline. The next attempt should try to recover the small FF increase without
 returning to independent active flags. Candidates include factoring repeated
 produced-buffer setup, simplifying phase-update assignments, or narrowing any
 remaining service metadata that is only needed in statistics-enabled builds.
+
+## Try11 Produced-Flush Activation Helper
+
+Try11 keeps try10's compact service phase and factors the repeated
+produced-buffer activation update into a forced-inline helper:
+
+```text
+activate_produced_pair_flush
+```
+
+The helper updates the flush cursor, the compact service phase, and the buffered
+producer metadata. It does not change the runtime protocol; it only changes the
+source structure around a repeated control assignment pattern.
+
+Both full-profile CSIM and FPGA-small compact-service-phase CSIM passed.
+FPGA-small synthesis completed:
+
+| Build | LUT | FF | DSP | Main loop II | Estimated clock | Timing/slack | Main result |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| FPGA-small compact service phase try10 | 9646 | 4356 | 2 | 1 | `7.287 ns` | `+0.01` | timing estimate clears |
+| FPGA-small flush activation helper try11 | 9646 | 4356 | 2 | 1 | `7.287 ns` | `+0.01` | synthesis-neutral cleanup |
+
+The HLS log confirms the helper is inlined into `reducer_core`. Since the
+resource and timing numbers are identical to try10, the repeated source
+assignments were already optimized into the same hardware. This is useful
+negative evidence: the extra FFs introduced by try10 are not due to repeated
+activation code; they are the structural cost of the explicit service-phase
+controller.
+
+## Next Queue Architecture
+
+The next area-recovery attempt should target a different source. Good candidates
+are service metadata that only matters when statistics are enabled, or a
+separate full-profile synthesis checkpoint to see how the improved controller
+behaves when complete numeric semantics are restored. Repeating source-level
+factoring around produced-buffer activation is unlikely to change hardware.

@@ -53,6 +53,34 @@ reconstructed later.
   measurement to run when the change touches full-only behavior or when a new
   milestone needs comparison against the complete semantic profile.
 
+## CSIM And CSYNTH Policy
+
+The architecture tries normally run full-profile CSIM, FPGA-small CSIM, and
+FPGA-small CSYNTH. They do not normally repeat full-profile CSYNTH for every
+queue, scheduler, or control-path change.
+
+Reason: the full profile is intentionally semantic-complete, so synthesis is
+dominated by known expensive numeric and runtime paths such as F24, division,
+remainder, `fmod`, and full numeric datapaths. The recorded full staged/no-stats
+reference from try1 completed at about `48457 LUT`, `32215 FF`, `49 DSP`, and
+main-loop `II=67`. Repeating that synthesis for each small runtime restructuring
+mostly re-measures the full numeric subsystem instead of the architecture change
+being tested.
+
+Use this validation split:
+
+- Full CSIM: proves complete-profile semantics did not break.
+- FPGA-small CSIM: proves the gated FPGA architecture path works.
+- FPGA-small CSYNTH: measures the actual architecture experiment.
+- Full CSYNTH: run only at milestones, or when a change touches full-only
+  behavior such as full numeric operations, inline reference behavior, or a
+  complete-profile top-level interface.
+
+For the current try sequence, most changes target queue ownership, reducer
+control, staged `CALL`, produced-pair buffering, and completion accounting. In
+that context, FPGA-small CSYNTH is the clean synthesis signal, while full CSYNTH
+is slow, noisy, and useful mainly as a milestone comparison.
+
 ## Diploma Use
 
 The try logs are source material for architecture and evaluation chapters. They
