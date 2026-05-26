@@ -127,6 +127,8 @@ The project currently provides:
 | `hls_config_synth_full_staged_call_nostats.cfg` | Full-profile synthesis probe with statistics disabled and staged `CALL` enabled |
 | `hls_config_full_compact_service_phase.cfg` | Full-profile CSIM checkpoint with staged `CALL` and the compact service-phase architecture enabled |
 | `hls_config_synth_full_compact_service_phase_nostats.cfg` | Full-profile synthesis checkpoint with statistics disabled and compact service-phase architecture enabled |
+| `hls_config_full_compact_service_phase_no_f24_rem.cfg` | Full-profile CSIM checkpoint with compact service phase and F24 remainder disabled |
+| `hls_config_synth_full_compact_service_phase_no_f24_rem_nostats.cfg` | Full-profile synthesis checkpoint with compact service phase, statistics disabled, and F24 remainder disabled |
 | `hls_config_synth_fpga_small_nostats.cfg` | FPGA-small synthesis probe with statistics disabled |
 | `hls_config_synth_fpga_small_nostats_nocall.cfg` | FPGA-small synthesis probe with statistics and `CALL` disabled |
 | `hls_config_synth_fpga_small_staged_call.cfg` | FPGA-small synthesis probe with staged single-lane `CALL` enabled |
@@ -223,6 +225,15 @@ smaller and cleaner than the early try1 full staged/no-statistics reference
 (`48457 LUT`, `32215 FF`, `49 DSP`, `II=67`). The report still shows the numeric
 subsystem as the largest area source: `apply_numeric_operation` alone accounts
 for `9175 LUT`, `5306 FF`, and `10 DSP`.
+
+Try13 isolates one part of that numeric cost. The
+`ENABLE_NUMERIC_F24_REMAINDER` gate defaults to enabled, so the normal full
+profile still supports F24 remainder. With
+`ENABLE_NUMERIC_F24_REMAINDER=0`, full compact-service synthesis completed at
+`14017 LUT`, `7902 FF`, `7 DSP`, and main-loop `II=1`. The complete reduction
+from try12 (`-4044 LUT`, `-1883 FF`, `-5 DSP`) is explained by removing the
+floating-point `fmod` hardware from `apply_numeric_operation`; integer
+division/remainder and other F24 operations remain enabled.
 
 For Chapter 4, this split should be reported explicitly. FPGA-small CSYNTH is
 the clean measurement for queue/control/runtime architecture changes. Full

@@ -80,6 +80,13 @@ static inline Port apply_numeric_operation(
     *status_code = REDUCER_STATUS_UNSUPPORTED_NUMERIC_TYPE;
     return make_u24_number_port(0);
   }
+  if (!ENABLE_NUMERIC_F24_REMAINDER &&
+      active_numeric_tag == NUMERIC_TAG_F24 &&
+      (operation_tag == NUMERIC_TAG_OPERATION_REMAINDER ||
+       operation_tag == NUMERIC_TAG_OPERATION_FLIPPED_REMAINDER)) {
+    *status_code = REDUCER_STATUS_INVALID_NUMERIC_OPERATION;
+    return make_u24_number_port(0);
+  }
 
   ap_uint<24> captured_operand_u24 = get_numeric_payload_from_port(captured_numeric_operation_port);
   ap_uint<24> active_operand_u24 = get_u24_from_numeric_port(active_numeric_port);
@@ -228,7 +235,7 @@ static inline Port apply_numeric_operation(
         result_f24 = active_operand_f24 / captured_operand_f24;
         break;
 #endif
-#if ENABLE_NUMERIC_REMAINDER
+#if ENABLE_NUMERIC_REMAINDER && ENABLE_NUMERIC_F24_REMAINDER
       case NUMERIC_TAG_OPERATION_REMAINDER:
         if (active_operand_f24 == 0.0f) {
           *status_code = REDUCER_STATUS_NUMERIC_DIVISION_BY_ZERO;

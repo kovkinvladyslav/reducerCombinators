@@ -45,6 +45,7 @@ int main() {
       run_switch_zero_test(),
       run_switch_nonzero_test(),
       run_unsupported_f24_test(),
+      run_f24_remainder_profile_test(),
       run_call_identity_test(),
       run_call_constructor_test(),
       run_call_internal_active_pair_test(),

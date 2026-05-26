@@ -502,3 +502,41 @@ For diploma wording, this is the clean comparison:
 - Full-profile synthesis is now a milestone evidence point rather than a
   dead-end: it proves complete semantics can synthesize, but numeric policy is
   the next major resource question.
+
+## Try13 F24 Remainder Resource Gate
+
+Try13 tests the numeric-policy direction recommended after try12. It does not
+change the reducer service controller. Instead, it adds one narrow gate:
+
+```text
+ENABLE_NUMERIC_F24_REMAINDER
+```
+
+The default value preserves full-profile behavior. When explicitly set to `0`,
+only F24 remainder is rejected with `REDUCER_STATUS_INVALID_NUMERIC_OPERATION`.
+U24/I24 remainder, U24/I24 division, F24 add/sub/mul/div/compare, staged `CALL`,
+and the compact service controller remain enabled.
+
+Validation passed in both semantic modes:
+
+- default full compact-service CSIM: F24 remainder works;
+- no-F24-rem full compact-service CSIM: F24 remainder reports invalid operation;
+- no-F24-rem full no-statistics CSYNTH: completed.
+
+| Build | LUT | FF | DSP | Main loop II | Numeric interpretation |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Try12 full compact service | 18061 | 9785 | 12 | 1 | full numeric subsystem, including F24 `fmod` |
+| Try13 full no F24 remainder | 14017 | 7902 | 7 | 1 | same controller, F24 `fmod` removed |
+
+The delta is `-4044 LUT`, `-1883 FF`, and `-5 DSP`. The
+`apply_numeric_operation` report shows the same delta directly:
+
+| Build | Numeric LUT | Numeric FF | Numeric DSP |
+| --- | ---: | ---: | ---: |
+| Try12 full compact service | 9175 | 5306 | 10 |
+| Try13 full no F24 remainder | 5131 | 3423 | 5 |
+
+This is unusually clean evidence: the top-level saving equals the saving inside
+`apply_numeric_operation`, and the try13 reports contain no `generic_fmod`
+module. For the diploma, this supports describing numeric operations as a
+separate resource policy layered on top of the interaction-net runtime.

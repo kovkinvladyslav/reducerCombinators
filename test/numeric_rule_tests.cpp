@@ -420,3 +420,47 @@ static Chapter4ScenarioResult run_unsupported_f24_test() {
   }
   return scenario_result;
 }
+
+static Chapter4ScenarioResult run_f24_remainder_profile_test() {
+  Chapter4ScenarioResult scenario_result = {"F24 REM profile", false, 0, 0, 0, 0, {}};
+  PackedNode node_memory[MAXIMUM_NODE_COUNT];
+  Port substitution_memory[MAXIMUM_VARIABLE_COUNT];
+  RedexPair redex_memory[MAXIMUM_REDEX_COUNT];
+  initialize_node_memory(node_memory);
+  initialize_substitution_memory(substitution_memory);
+  initialize_redex_memory(redex_memory);
+
+  ap_uint<1> allocation_successful = 0;
+  ap_uint<32> allocated_node_count = 0;
+  ap_uint<32> allocated_variable_count = 0;
+  NodeAddress operator_node_address = allocate_node(
+      node_memory,
+      &allocated_node_count,
+      make_numeric_operation_port(NUMERIC_TAG_OPERATION_REMAINDER, get_numeric_payload_from_port(make_f24_number_port(5.5f))),
+      make_port(PORT_TAG_REFERENCE, 151),
+      &allocation_successful);
+  redex_memory[0].left_port = make_f24_number_port(2.0f);
+  redex_memory[0].right_port = make_port(PORT_TAG_OPERATOR, operator_node_address);
+  ap_uint<32> redex_count = 1;
+  run_reducer_scenario(node_memory, substitution_memory, redex_memory, &redex_count, &allocated_node_count, &allocated_variable_count, 1, &scenario_result);
+  if (!require_allocation_success(allocation_successful)) {
+    fail_scenario(&scenario_result, "setup allocation failed");
+#if ENABLE_NUMERIC_F24 && ENABLE_NUMERIC_F24_REMAINDER
+  } else if (scenario_result.status_code != REDUCER_STATUS_MAXIMUM_STEPS_REACHED) {
+    fail_scenario(&scenario_result, "expected max-steps status with F24 remainder result still queued");
+  } else if (scenario_result.statistics.performed_operate_count != 1) {
+    fail_scenario(&scenario_result, "expected one F24 remainder operate interaction");
+  } else if (!contains_f24_number_pair(redex_memory, 4, 1.5f)) {
+    fail_scenario(&scenario_result, "missing expected F24 remainder result 1.5");
+#elif ENABLE_NUMERIC_F24
+  } else if (scenario_result.status_code != REDUCER_STATUS_INVALID_NUMERIC_OPERATION) {
+    fail_scenario(&scenario_result, "expected disabled F24 remainder to report invalid numeric operation");
+#else
+  } else if (scenario_result.status_code != REDUCER_STATUS_UNSUPPORTED_NUMERIC_TYPE) {
+    fail_scenario(&scenario_result, "expected disabled F24 to report unsupported numeric type");
+#endif
+  } else {
+    pass_scenario(&scenario_result);
+  }
+  return scenario_result;
+}
