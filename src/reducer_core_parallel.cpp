@@ -1219,7 +1219,11 @@ extern "C" void reducer_core_parallel(
 #else
       executed_steps < maximum_steps &&
 #endif
+#if ENABLE_PARALLEL_ASSUME_VALID_SELECTED_COMMANDS
+      1) {
+#else
       local_status_code == REDUCER_STATUS_SUCCESS) {
+#endif
 #if !ENABLE_PARALLEL_UNPIPELINED_SERVICE_DISPATCH
 #pragma HLS PIPELINE II=1
 #endif
@@ -1976,6 +1980,10 @@ extern "C" void reducer_core_parallel(
       if (selected_erase_service_active &&
           local_status_code == REDUCER_STATUS_SUCCESS) {
         if (selected_erase_service_node_address >= MAXIMUM_NODE_COUNT) {
+#if ENABLE_PARALLEL_ASSUME_VALID_SELECTED_COMMANDS
+          selected_erase_service_active = 0;
+          parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#else
           InteractionResult unsupported_result = make_interaction_result(0);
           unsupported_result.unsupported_interaction = 1;
           record_parallel_error_status(
@@ -1984,6 +1992,7 @@ extern "C" void reducer_core_parallel(
               &local_status_code);
           selected_erase_service_active = 0;
           parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
         } else {
           PackedNode node_data = node_memory[selected_erase_service_node_address];
           selected_erase_service_aux0 = get_first_auxiliary_port(node_data);
@@ -2167,6 +2176,14 @@ extern "C" void reducer_core_parallel(
               other_port = selected_command_active_pair.left_port;
             }
 
+#if ENABLE_PARALLEL_ASSUME_VALID_SELECTED_COMMANDS && ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
+            PortValue variable_index = get_port_value(variable_port);
+            selected_command_link_active = 1;
+            selected_command_link_stage = PARALLEL_LINK_STAGE_READ_PREVIOUS;
+            selected_command_link_variable_index = variable_index;
+            selected_command_link_other_port = other_port;
+            parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+#else
             if (!is_variable_port(variable_port)) {
               if (!append_produced_active_pair(
                       &selected_command_produced_active_pairs,
@@ -2248,6 +2265,7 @@ extern "C" void reducer_core_parallel(
                 parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
               }
             }
+#endif
           } else if (selected_command_link_stage == PARALLEL_LINK_STAGE_READ_PREVIOUS) {
             Port previous_port =
                 substitution_memory[selected_command_link_variable_index];
@@ -2512,12 +2530,14 @@ extern "C" void reducer_core_parallel(
               &reducer_lanes[selected_command_lane_index],
               &discarded_active_pair);
           initialize_produced_active_pairs(&selected_command_produced_active_pairs);
+#if !ENABLE_PARALLEL_ASSUME_VALID_SELECTED_COMMANDS
           InteractionResult unsupported_result = make_interaction_result(0);
           unsupported_result.unsupported_interaction = 1;
           record_parallel_error_status(
               reducer_statistics,
               unsupported_result,
               &local_status_code);
+#endif
         }
 #else
 #if ENABLE_PARALLEL_STAGED_LINK

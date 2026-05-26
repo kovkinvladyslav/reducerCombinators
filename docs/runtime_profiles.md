@@ -659,3 +659,24 @@ try52, but does not improve timing versus try49. The critical path now runs
 through `while.cond`, the executed-step loop condition, and the shared
 `local_status_code` phi. Future profiles should focus on separating hot success
 control from global error/status reporting.
+
+Try54 measures that separation with a focused valid-graph profile:
+
+```text
+hls_config_try54_success_status_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_ASSUME_VALID_SELECTED_COMMANDS` together with the
+try53 selected `ERASE` service. The default full and FPGA-small configs keep
+normal status behavior; only the focused synthesis config removes
+selected-command status writes and the hot-loop status condition.
+
+Full CSIM and FPGA-small CSIM passed. Focused CSYNTH completed at `3302 LUT`,
+`1164 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and about `-0.935 ns` slack
+with estimated Fmax `121.44 MHz`.
+
+This is positive evidence, although not a final timing-closed design. It
+improves over try53 in area and Fmax and moves the critical path away from
+`local_status_code`. The new path is selected-command capture through the local
+lane queue and candidate-pair mux. Future profiles should split selected
+command selection into scan/capture ticks.
