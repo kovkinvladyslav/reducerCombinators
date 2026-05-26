@@ -1683,3 +1683,58 @@ commit produced pairs
 
 This directly targets the `global_queue_count_value` portion of the current
 critical path.
+
+## Try34 Split Parallel Refill Pop
+
+Try34 implements the refill split recommended by try33 under:
+
+```text
+ENABLE_PARALLEL_SPLIT_REFILL
+```
+
+The focused scheduler sequence becomes:
+
+```text
+refill capture: record empty local lanes
+refill pop: pop at most one global active pair into one recorded lane
+capture selected active pair
+classify selected rule
+execute or advance staged LINK
+commit produced pair
+```
+
+The intended hardware effect was to stop the REFILL phase from both selecting
+empty lanes and mutating `global_queue_count_value` for multiple lanes in one
+pipeline tick. That is a sensible FPGA idea because queue count is a global
+state register, and every extra comparator/mux attached to it tends to enlarge
+the scheduler control path.
+
+Full-profile CSIM and FPGA-small CSIM passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try32 split `LINK` writeback | 4594 | 2669 | 0 | 0 | 1 | `-3.19` | `95.28 MHz` |
+| Try33 pending status | 4772 | 2282 | 0 | 0 | 1 | `-3.16` | `95.58 MHz` |
+| Try34 split refill pop | 4680 | 2118 | 0 | 0 | 1 | `-4.11` | `87.67 MHz` |
+
+This is useful negative evidence. The split reduced FFs but worsened timing.
+The HLS critical path still connects loop control, `redex_queue_count`/
+`global_queue_count_value`, redex empty comparison, and the shared
+`local_status_code` phi/store. The design-size report also still shows two
+syntactic calls to `active_pair_queue_pop_global`, because the lane0/lane1
+priority selection was written as two pop sites.
+
+For diploma wording:
+
+```text
+Try34 shows that a conceptual service split is not enough if the C structure
+still presents HLS with duplicated queue-pop call sites and broad priority
+control. The next hardware-oriented queue step must expose a true single pop
+datapath: first choose a target lane, then perform one global pop, then route
+the result to the selected lane.
+```
+
+The next experiment should not keep deepening refill in this same form. It
+should either use a single `refill_target_lane` register with exactly one
+global-pop call site, or move global pop into a dedicated one-entry pop buffer
+before selected-command capture.

@@ -793,6 +793,9 @@ extern "C" void reducer_core_parallel(
   ap_uint<32> local_status_code = REDUCER_STATUS_SUCCESS;
 #if ENABLE_PARALLEL_SERVICE_PHASE
   ReducerServicePhase parallel_service_phase = PARALLEL_SERVICE_REFILL;
+#if ENABLE_PARALLEL_SPLIT_REFILL
+  ap_uint<1> refill_lane_needs_work[REDUCER_LANE_COUNT];
+#endif
 #if ENABLE_PARALLEL_PENDING_STATUS
   ap_uint<1> pending_status_valid = 0;
   ap_uint<32> pending_status_code = REDUCER_STATUS_SUCCESS;
@@ -854,6 +857,9 @@ extern "C" void reducer_core_parallel(
 #pragma HLS ARRAY_PARTITION variable=phased_lane_should_commit complete dim=1
 #pragma HLS ARRAY_PARTITION variable=phased_produced_active_pairs complete dim=1
 #pragma HLS ARRAY_PARTITION variable=phased_produced_pair_index complete dim=1
+#if ENABLE_PARALLEL_SPLIT_REFILL
+#pragma HLS ARRAY_PARTITION variable=refill_lane_needs_work complete dim=1
+#endif
 #if ENABLE_PARALLEL_SELECTED_COMMAND
 #pragma HLS ARRAY_PARTITION variable=selected_command_produced_active_pairs.produced_pairs complete dim=1
   initialize_produced_active_pairs(&selected_command_produced_active_pairs);
@@ -873,6 +879,9 @@ extern "C" void reducer_core_parallel(
     phased_candidate_rule_kinds[lane_index] = INTERACTION_RULE_UNSUPPORTED;
     phased_lane_should_commit[lane_index] = 0;
     phased_produced_pair_index[lane_index] = 0;
+#if ENABLE_PARALLEL_SPLIT_REFILL
+    refill_lane_needs_work[lane_index] = 0;
+#endif
     initialize_produced_active_pairs(&phased_produced_active_pairs[lane_index]);
   }
 #endif
@@ -953,6 +962,27 @@ extern "C" void reducer_core_parallel(
     }
 #else
     if (parallel_service_phase == PARALLEL_SERVICE_REFILL) {
+#if ENABLE_PARALLEL_SPLIT_REFILL
+      ap_uint<1> any_local_work_available = 0;
+      ap_uint<1> any_lane_needs_refill = 0;
+      for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
+#pragma HLS UNROLL
+        ap_uint<1> lane_empty = active_pair_queue_is_local_empty(&reducer_lanes[lane_index]);
+        refill_lane_needs_work[lane_index] = lane_empty;
+        any_lane_needs_refill = any_lane_needs_refill || lane_empty;
+        any_local_work_available = any_local_work_available || !lane_empty;
+      }
+
+      if (redex_queue_is_empty(global_queue_count_value) && !any_local_work_available) {
+        break;
+      }
+
+      if (any_lane_needs_refill && !redex_queue_is_empty(global_queue_count_value)) {
+        parallel_service_phase = PARALLEL_SERVICE_REFILL_POP;
+      } else {
+        parallel_service_phase = PARALLEL_SERVICE_SELECT;
+      }
+#else
       ap_uint<1> any_local_work_available = 0;
       for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
 #pragma HLS UNROLL
@@ -979,6 +1009,45 @@ extern "C" void reducer_core_parallel(
         }
       }
       parallel_service_phase = PARALLEL_SERVICE_SELECT;
+#endif
+    } else if (parallel_service_phase == PARALLEL_SERVICE_REFILL_POP) {
+#if ENABLE_PARALLEL_SPLIT_REFILL
+      RedexPair refilled_active_pair;
+      ap_uint<1> popped = 0;
+      if (refill_lane_needs_work[0] &&
+          active_pair_queue_pop_global(
+              global_active_pair_memory,
+              &global_queue_head_index,
+              &global_queue_count_value,
+              &refilled_active_pair)) {
+        active_pair_queue_push_local(&reducer_lanes[0], refilled_active_pair);
+        refill_lane_needs_work[0] = 0;
+        popped = 1;
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+        reducer_statistics->global_refill_count = reducer_statistics->global_refill_count + 1;
+#endif
+      } else if (refill_lane_needs_work[1] &&
+                 active_pair_queue_pop_global(
+                     global_active_pair_memory,
+                     &global_queue_head_index,
+                     &global_queue_count_value,
+                     &refilled_active_pair)) {
+        active_pair_queue_push_local(&reducer_lanes[1], refilled_active_pair);
+        refill_lane_needs_work[1] = 0;
+        popped = 1;
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+        reducer_statistics->global_refill_count = reducer_statistics->global_refill_count + 1;
+#endif
+      }
+
+      if (popped && (refill_lane_needs_work[0] || refill_lane_needs_work[1])) {
+        parallel_service_phase = PARALLEL_SERVICE_REFILL_POP;
+      } else {
+        parallel_service_phase = PARALLEL_SERVICE_SELECT;
+      }
+#else
+      parallel_service_phase = PARALLEL_SERVICE_SELECT;
+#endif
     } else if (parallel_service_phase == PARALLEL_SERVICE_SELECT) {
 #if ENABLE_PARALLEL_WAITING_COMMAND
       if (active_command_valid) {

@@ -292,3 +292,24 @@ being dominated by floating-point, division, and remainder units.
 The FPGA-small profile should not be described as a different calculus or a
 different reducer. It is a synthesis-oriented subset of the numeric subsystem
 used to study hardware feasibility.
+
+## Parallel Scheduler Try34 Note
+
+Try34 adds a focused split-refill synthesis profile:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_staged_link_split_classify_split_writeback_split_refill_nostats.cfg
+```
+
+This profile keeps the try31/try32 selected-command staging and disables the
+try33 pending-status path. It enables `ENABLE_PARALLEL_SPLIT_REFILL`, which
+splits local-lane refill detection from global queue pop/count mutation. The
+profile is a synthesis probe for the experimental parallel reducer; it is not a
+replacement semantic profile.
+
+Full-profile CSIM and FPGA-small CSIM passed. Focused CSYNTH completed at
+`4680 LUT`, `2118 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and `-4.11` slack.
+This is a negative timing result: refill splitting reduced FF usage but
+worsened timing versus try32 and try33. The evidence suggests the next queue
+experiment must make the global pop datapath a true single syntactic service
+instead of priority-coding two pop call sites.
