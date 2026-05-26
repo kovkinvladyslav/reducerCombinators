@@ -453,6 +453,9 @@ static inline ap_uint<1> execute_selected_erase_direct(
     ap_uint<32>* direct_erase_pending_status_code,
 #endif
     ap_uint<32>* local_status_code) {
+#if ENABLE_PARALLEL_DIRECT_ERASE_NOINLINE
+#pragma HLS INLINE off
+#endif
   RedexPair discarded_active_pair;
   active_pair_queue_pop_local(reducer_lane_state, &discarded_active_pair);
 

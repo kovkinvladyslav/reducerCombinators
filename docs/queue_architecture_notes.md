@@ -2622,3 +2622,58 @@ surface itself, either by introducing a deliberately status-free focused fast
 loop for known-valid benchmark graphs, or by splitting refill/classify,
 execute, and commit into separate HLS functions/modules so the status path is
 not one monolithic loop phi.
+
+## Try52 Outlined Direct Selected ERASE Helper
+
+Try52 tests the smallest possible module-boundary step:
+
+```text
+ENABLE_PARALLEL_DIRECT_ERASE_NOINLINE
+```
+
+The selected `ERASE` datapath is kept semantically identical to try49, but
+`execute_selected_erase_direct` is marked with `#pragma HLS INLINE off` so Vitis
+must synthesize it as a separate helper module.
+
+Full-profile CSIM and FPGA-small CSIM passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try49 direct selected `ERASE` | 3661 | 1165 | 0 | 0 | 1 | `~ -1.16` | `118.28 MHz` |
+| Try51 prevalidated selected `ERASE` | 3698 | 1300 | 0 | 0 | 1 | `~ -1.155` | `118.28 MHz` |
+| Try52 outlined selected `ERASE` helper | 3821 | 1555 | 0 | 0 | 3 | `~ -0.295` | `131.66 MHz` |
+
+This is a mixed negative result. The helper boundary is real: HLS emits an
+`execute_selected_erase_direct` report, and the helper itself reaches latency
+`1`, interval `1`, with about `270 LUT` and `136 FF`. The top-level timing
+estimate improves from the previous `118.28 MHz` plateau to `131.66 MHz`.
+
+However, the scheduler loop now fails its `II=1` constraint:
+
+```text
+Unable to enforce a carried dependence constraint ... between load operation
+on array node_memory and call operation ... to execute_selected_erase_direct
+
+Unable to schedule call operation ... to execute_selected_erase_direct due to
+limited resources (II = 2)
+
+Pipelining result : Target II = 1, Final II = 3, Depth = 4, loop
+VITIS_LOOP_1195_3
+```
+
+For diploma wording:
+
+```text
+Try52 shows that a C++/HLS module boundary can improve the clock estimate, but
+it is not equivalent to a hardware scheduling boundary. If the helper is still
+called from the same pipelined loop iteration that owns node-memory access and
+status selection, Vitis must schedule the call/return as a loop-carried
+resource and dependency. The result is better Fmax but worse initiation
+interval.
+```
+
+The next experiment should avoid direct noinline calls inside the scheduler
+loop. A real scheduler protocol boundary is needed: either a multi-cycle
+selected-rule service with request/response registers, or separate HLS
+functions connected by small command records so classify, execute, and commit
+are not merged into one loop-carried status path.
