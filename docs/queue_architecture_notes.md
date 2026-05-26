@@ -2347,3 +2347,66 @@ The next experiment should not add another general service phase using the full
 `InteractionRuleKind` enum. It should either combine non-link staging with a
 narrow class bitfield, or specialize only one non-link rule at a time to avoid
 widening the shared selected-command controller.
+
+## Try47 Narrow Selected Class With Non-Link Service
+
+Try47 tests the first try46 recommendation under:
+
+```text
+ENABLE_PARALLEL_NARROW_SELECTED_CLASS
+```
+
+The implementation keeps the try46 `PARALLEL_SERVICE_NON_LINK_READ` service
+and adds a selected-command class field with only five values:
+
+```text
+LINK, VOID, ERASE, ANNIHILATE, UNSUPPORTED
+```
+
+The intent was to avoid steering the non-link service from the full
+`InteractionRuleKind` enum. Full-profile CSIM and FPGA-small CSIM passed.
+Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try41 staged `LINK` decide/write split | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+| Try46 dedicated non-link read service | 3752 | 1288 | 0 | 0 | 1 | `-4.92` | `81.81 MHz` |
+| Try47 narrow selected class wrapper | 4220 | 1298 | 0 | 0 | 1 | `~ -8.18` | `64.59 MHz` |
+
+This is a negative result. The class was narrow in C++ type shape, but not in
+hardware structure. The focused path still computed the compact rule kind,
+then mapped it to the class, then mapped the class back to the full rule kind
+for compatibility with the rest of the selected-command controller.
+
+Vitis design-size evidence shows the added path explicitly:
+
+```text
+get_narrow_selected_class: 2730 compile/link instructions
+get_selected_compact_rule_kind: 2619 compile/link instructions
+get_rule_kind_from_selected_class: 123 compile/link instructions
+```
+
+The reported critical path stayed in selected-command control:
+
+```text
+selected produced-pair right port
+compact rule classifier / ports_have_same_tag
+selected class mux
+rule-kind compatibility mux
+parallel_service_phase select/store
+```
+
+For diploma wording:
+
+```text
+Try47 distinguishes semantic narrowing from hardware narrowing. A small class
+field does not reduce FPGA control depth if the implementation still computes
+and preserves the wider rule-kind representation in the hot path. This result
+supports treating selected-rule control as an architectural interface, not a
+local helper-function substitution.
+```
+
+The next experiment should avoid compatibility conversion in the focused hot
+path. Either specialize one non-link rule from the try41 baseline, or build a
+true class-only selected executor where the focused scheduler no longer stores
+or branches on `selected_command_rule_kind`.

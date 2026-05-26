@@ -516,3 +516,22 @@ This is a negative profile result. It shows that adding a dedicated service
 phase without narrowing selected-command control reintroduces the same
 service-phase timing class as try43. Future focused profiles should narrow the
 selected command class/state before adding more staged non-link services.
+
+Try47 combines the try46 non-link service with a narrow selected-command class:
+
+```text
+hls_config_try47_narrow_class_non_link_service_nostats.cfg
+```
+
+This enables both `ENABLE_PARALLEL_STAGED_NON_LINK_SERVICE` and
+`ENABLE_PARALLEL_NARROW_SELECTED_CLASS`. Full CSIM and FPGA-small CSIM passed.
+Focused CSYNTH completed at `4220 LUT`, `1298 FF`, `0 DSP`, `0 BRAM`,
+scheduler `II=1`, and about `-8.18` slack with estimated Fmax `64.59 MHz`.
+
+This is a negative profile result. The profile proves that a narrow class
+field must be an actual hardware interface, not a wrapper around the existing
+full rule-kind path. In try47, HLS still had to synthesize
+`get_selected_compact_rule_kind`, then the narrow-class mux, then
+`get_rule_kind_from_selected_class` for compatibility. Future focused profiles
+should either specialize a single non-link rule from the try41 baseline or
+remove `selected_command_rule_kind` from the focused hot path entirely.
