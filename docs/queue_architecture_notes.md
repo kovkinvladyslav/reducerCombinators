@@ -2410,3 +2410,60 @@ The next experiment should avoid compatibility conversion in the focused hot
 path. Either specialize one non-link rule from the try41 baseline, or build a
 true class-only selected executor where the focused scheduler no longer stores
 or branches on `selected_command_rule_kind`.
+
+## Try48 True Class-Only Selected Command
+
+Try48 tests the second try47 recommendation under:
+
+```text
+ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
+```
+
+Unlike try47, this profile does not classify through
+`InteractionRuleKind -> class -> InteractionRuleKind`. It adds a direct
+selected-command class decoder and uses that class in the measured focused
+selected path. The focused CLASSIFY tick stores only:
+
+```text
+LINK, VOID, ERASE, ANNIHILATE, UNSUPPORTED
+```
+
+Selected `VOID` is handled directly in EXECUTE. Selected `LINK` still uses the
+existing staged LINK service. Selected `ERASE`/`ANNIHILATE` still use the
+existing focused non-link helper, so this try isolates the control-interface
+change before attempting another non-link datapath split.
+
+Full-profile CSIM and FPGA-small CSIM passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try41 staged `LINK` decide/write split | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+| Try47 narrow selected class wrapper | 4220 | 1298 | 0 | 0 | 1 | `~ -8.18` | `64.59 MHz` |
+| Try48 true class-only selected command | 3791 | 1162 | 0 | 0 | 1 | `~ -1.16` | `118.28 MHz` |
+
+This is a neutral negative result. It removes the try47 timing damage, proving
+that the compatibility round trip was the problem. It does not beat try41,
+because the remaining critical path returns to selected non-link
+node-address/status production:
+
+```text
+selected produced-pair left port
+erasure-port / node-address selection
+node-address range check
+local_status_code phi/store
+```
+
+For diploma wording:
+
+```text
+Try48 shows the difference between a narrow software wrapper and a narrow
+hardware interface. Removing the rule-kind compatibility conversion restores
+the previous scheduler timing point, but the next bottleneck is rule datapath
+validation, not selected-rule classification.
+```
+
+The next experiment should not revisit selected-command classification alone.
+It should specialize one selected non-link datapath at a time, beginning with
+`ERASE`, and measure whether separating node-address validation/status from
+produced-pair emission reduces the `local_status_code` critical path without
+reintroducing broad service-phase muxing.
