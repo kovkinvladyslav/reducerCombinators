@@ -499,3 +499,20 @@ This matches try41 exactly. It is useful negative evidence: the compact decoder
 is safe when placed in CLASSIFY, but selected-command classification is no
 longer the timing limiter. The next focused profile should target selected
 non-link node/status execution instead.
+
+Try46 adds a dedicated selected non-link read service:
+
+```text
+hls_config_try46_non_link_service_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_STAGED_NON_LINK_SERVICE`, adding
+`PARALLEL_SERVICE_NON_LINK_READ` for focused selected `ERASE`/`ANNIHILATE`
+validation and node-data capture. Full CSIM and FPGA-small CSIM passed.
+Focused CSYNTH completed at `3752 LUT`, `1288 FF`, `0 DSP`, `0 BRAM`,
+scheduler `II=1`, and `-4.92` slack with estimated Fmax `81.81 MHz`.
+
+This is a negative profile result. It shows that adding a dedicated service
+phase without narrowing selected-command control reintroduces the same
+service-phase timing class as try43. Future focused profiles should narrow the
+selected command class/state before adding more staged non-link services.

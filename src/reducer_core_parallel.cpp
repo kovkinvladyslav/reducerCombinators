@@ -928,7 +928,7 @@ extern "C" void reducer_core_parallel(
   InteractionRuleKind selected_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
   ProducedActivePairs selected_command_produced_active_pairs;
   ProducedPairCount selected_command_produced_pair_index = 0;
-#if ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+#if (ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION || ENABLE_PARALLEL_STAGED_NON_LINK_SERVICE) && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
   ap_uint<1> selected_non_link_validation_pending = 0;
   ap_uint<1> selected_non_link_validated = 0;
   Port selected_non_link_pair0_left = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
@@ -1539,7 +1539,7 @@ extern "C" void reducer_core_parallel(
 #endif
     } else if (parallel_service_phase == PARALLEL_SERVICE_CLASSIFY) {
 #if ENABLE_PARALLEL_SELECTED_COMMAND && ENABLE_PARALLEL_SPLIT_SELECTED_CLASSIFY
-#if ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+#if (ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION || ENABLE_PARALLEL_STAGED_NON_LINK_SERVICE) && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
       if (selected_command_valid &&
           selected_non_link_validation_pending &&
           local_status_code == REDUCER_STATUS_SUCCESS) {
@@ -1620,9 +1620,84 @@ extern "C" void reducer_core_parallel(
         } else {
           parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
         }
+#elif ENABLE_PARALLEL_STAGED_NON_LINK_SERVICE && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+        if (selected_command_rule_kind == INTERACTION_RULE_ERASE ||
+            selected_command_rule_kind == INTERACTION_RULE_ANNIHILATE) {
+          selected_non_link_validation_pending = 1;
+          parallel_service_phase = PARALLEL_SERVICE_NON_LINK_READ;
+        } else {
+          parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+        }
 #else
         parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
 #endif
+      } else {
+        parallel_service_phase = PARALLEL_SERVICE_REFILL;
+      }
+#else
+      parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+#endif
+    } else if (parallel_service_phase == PARALLEL_SERVICE_NON_LINK_READ) {
+#if ENABLE_PARALLEL_SELECTED_COMMAND && ENABLE_PARALLEL_STAGED_NON_LINK_SERVICE && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+      if (selected_command_valid &&
+          selected_non_link_validation_pending &&
+          local_status_code == REDUCER_STATUS_SUCCESS) {
+        RedexPair discarded_active_pair;
+        active_pair_queue_pop_local(
+            &reducer_lanes[selected_command_lane_index],
+            &discarded_active_pair);
+        initialize_produced_active_pairs(&selected_command_produced_active_pairs);
+
+        InteractionResult validation_result = make_interaction_result(1);
+        if (selected_command_rule_kind == INTERACTION_RULE_ERASE) {
+          Port erasure_port = selected_command_active_pair.left_port;
+          Port node_port = selected_command_active_pair.right_port;
+          if (!is_erasure_port(erasure_port)) {
+            erasure_port = selected_command_active_pair.right_port;
+            node_port = selected_command_active_pair.left_port;
+          }
+
+          NodeAddress node_address = get_port_value(node_port);
+          if (node_address >= MAXIMUM_NODE_COUNT) {
+            validation_result.success = 0;
+            validation_result.unsupported_interaction = 1;
+          } else {
+            PackedNode node_data = node_memory[node_address];
+            selected_non_link_pair0_left = erasure_port;
+            selected_non_link_pair0_right = get_first_auxiliary_port(node_data);
+            selected_non_link_pair1_left = erasure_port;
+            selected_non_link_pair1_right = get_second_auxiliary_port(node_data);
+          }
+        } else {
+          NodeAddress left_node_address =
+              get_port_value(selected_command_active_pair.left_port);
+          NodeAddress right_node_address =
+              get_port_value(selected_command_active_pair.right_port);
+          if (left_node_address >= MAXIMUM_NODE_COUNT ||
+              right_node_address >= MAXIMUM_NODE_COUNT) {
+            validation_result.success = 0;
+            validation_result.unsupported_interaction = 1;
+          } else {
+            PackedNode left_node = node_memory[left_node_address];
+            PackedNode right_node = node_memory[right_node_address];
+            selected_non_link_pair0_left = get_first_auxiliary_port(left_node);
+            selected_non_link_pair0_right = get_first_auxiliary_port(right_node);
+            selected_non_link_pair1_left = get_second_auxiliary_port(left_node);
+            selected_non_link_pair1_right = get_second_auxiliary_port(right_node);
+          }
+        }
+
+        selected_non_link_validation_pending = 0;
+        if (!validation_result.success) {
+          record_parallel_error_status(
+              reducer_statistics,
+              validation_result,
+              &local_status_code);
+          parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+        } else {
+          selected_non_link_validated = 1;
+          parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+        }
       } else {
         parallel_service_phase = PARALLEL_SERVICE_REFILL;
       }
@@ -1730,7 +1805,7 @@ extern "C" void reducer_core_parallel(
       parallel_service_phase = PARALLEL_SERVICE_COMMIT;
 #elif ENABLE_PARALLEL_SELECTED_COMMAND
       if (selected_command_valid && local_status_code == REDUCER_STATUS_SUCCESS) {
-#if ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+#if (ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION || ENABLE_PARALLEL_STAGED_NON_LINK_SERVICE) && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
         if (selected_non_link_validated) {
           selected_command_produced_active_pairs.produced_pairs[0].left_port =
               selected_non_link_pair0_left;
@@ -2020,7 +2095,7 @@ extern "C" void reducer_core_parallel(
           }
         } else {
 #endif
-#if ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+#if (ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION || ENABLE_PARALLEL_STAGED_NON_LINK_SERVICE) && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
         if (selected_command_rule_kind == INTERACTION_RULE_ERASE ||
             selected_command_rule_kind == INTERACTION_RULE_ANNIHILATE) {
           parallel_service_phase = PARALLEL_SERVICE_COMMIT;
@@ -2081,10 +2156,10 @@ extern "C" void reducer_core_parallel(
 #if ENABLE_PARALLEL_STAGED_LINK && ENABLE_RULE_LINK
         }
 #endif
-#if ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+#if (ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION || ENABLE_PARALLEL_STAGED_NON_LINK_SERVICE) && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
         }
 #endif
-#if ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+#if (ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION || ENABLE_PARALLEL_STAGED_NON_LINK_SERVICE) && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
         }
 #endif
       }
