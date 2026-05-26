@@ -727,3 +727,66 @@ dual-commit opportunities, true conflicts, and potential bank conflicts, but
 the synthesis report shows that a practical multi-lane runtime still requires
 smaller control/statistics state and explicit memory arbitration.
 ```
+
+## Try17 Parallel No-Statistics Checkpoint
+
+Try17 answers the first follow-up question from try16: how much of the
+experimental parallel reducer's cost comes from the statistics surface, and how
+much remains in the scheduler/datapath itself?
+
+The implementation adds only a focused synthesis config:
+
+```text
+hls_config_synth_parallel_fpga_small_nostats_nocall.cfg
+```
+
+It uses the same `reducer_core_parallel` top and the same FPGA-small/no-`CALL`
+subset as try16, but disables:
+
+```text
+ENABLE_REDUCER_STATISTICS
+ENABLE_PARALLEL_REDUCER_STATISTICS
+```
+
+Host validation still passed with `Overall Result: PASS`. The focused
+no-statistics parallel CSYNTH completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try16 bank metrics, statistics enabled | 39085 | 51611 | 2 | 4 | 12 | `-9.93` |
+| Try17 no statistics | 11111 | 5759 | 2 | 4 | 12 | `-6.14` |
+
+This is strong evidence that the statistics update/output network dominates
+the resource explosion in the measurement build. Removing it cuts about
+`27974 LUT` and `45852 FF` from the focused parallel top.
+
+The result is still not a practical parallel runtime. The main scheduler loop
+remains `II=12` with a `Memory Dependency` violation, and timing remains
+negative. The report identifies a critical path that starts with a local active
+pair queue read, flows through interaction-rule dispatch, and reaches a
+substitution-memory write path. That means the current two-lane loop still
+combines too much work in one HLS pipeline:
+
+- local queue read/peek,
+- candidate rule dispatch,
+- conflict checking,
+- lane rule execution,
+- produced-pair enqueue,
+- global/local memory updates.
+
+For diploma wording, try17 refines try16 rather than replacing it:
+
+```text
+Statistics made the parallel measurement top much larger, but removing
+statistics did not fix the initiation interval. The remaining blocker is the
+monolithic two-lane scheduling and memory-access pipeline.
+```
+
+The next parallel experiment should therefore target datapath structure, not
+only observation. Two useful directions are:
+
+- a structural parallel-core profile containing only `VOID`, `LINK`, `ERASE`,
+  and `ANNIHILATE`, to isolate the cost of `COMMUTE`, `SWITCH`, and `OPERATE`;
+- an explicit parallel service-phase controller that separates local-queue pop,
+  conflict decision, lane execution, and commit, mirroring the successful
+  single-lane service-phase architecture.
