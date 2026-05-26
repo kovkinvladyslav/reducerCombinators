@@ -114,6 +114,45 @@ static Chapter4ScenarioResult run_parallel_independent_link_test() {
   return scenario_result;
 }
 
+static Chapter4ScenarioResult run_parallel_substitution_bank_metric_test() {
+  Chapter4ScenarioResult scenario_result = {"Parallel subst bank metric", false, 0, 0, 0, 0, {}};
+  PackedNode node_memory[MAXIMUM_NODE_COUNT];
+  Port substitution_memory[MAXIMUM_VARIABLE_COUNT];
+  RedexPair active_pair_memory[MAXIMUM_REDEX_COUNT];
+  initialize_node_memory(node_memory);
+  initialize_substitution_memory(substitution_memory);
+  initialize_redex_memory(active_pair_memory);
+
+  active_pair_memory[0].left_port = make_port(PORT_TAG_VARIABLE, 21);
+  active_pair_memory[0].right_port = make_port(PORT_TAG_REFERENCE, 210);
+  active_pair_memory[1].left_port = make_port(PORT_TAG_VARIABLE, 25);
+  active_pair_memory[1].right_port = make_port(PORT_TAG_REFERENCE, 250);
+
+  ap_uint<32> active_pair_count = 2;
+  ap_uint<32> allocated_node_count = 0;
+  ap_uint<32> allocated_variable_count = 32;
+  run_parallel_reducer_scenario(
+      node_memory,
+      substitution_memory,
+      active_pair_memory,
+      &active_pair_count,
+      &allocated_node_count,
+      &allocated_variable_count,
+      2,
+      &scenario_result);
+
+  scenario_result.passed =
+      scenario_result.status_code == REDUCER_STATUS_SUCCESS &&
+      scenario_result.performed_steps == 2 &&
+      scenario_result.statistics.performed_link_count == 2 &&
+      scenario_result.statistics.dual_commit_cycle_count >= 1 &&
+      scenario_result.statistics.substitution_conflict_count == 0 &&
+      scenario_result.statistics.substitution_bank_conflict_count >= 1 &&
+      substitution_memory[21] == make_port(PORT_TAG_REFERENCE, 210) &&
+      substitution_memory[25] == make_port(PORT_TAG_REFERENCE, 250);
+  return scenario_result;
+}
+
 static Chapter4ScenarioResult run_parallel_independent_erase_test() {
   Chapter4ScenarioResult scenario_result = {"Parallel erase dual issue", false, 0, 0, 0, 0, {}};
   PackedNode node_memory[MAXIMUM_NODE_COUNT];
@@ -203,6 +242,50 @@ static Chapter4ScenarioResult run_parallel_independent_annihilate_test() {
       scenario_result.performed_steps == 2 &&
       scenario_result.statistics.performed_annihilate_count == 2 &&
       scenario_result.statistics.dual_commit_cycle_count >= 1;
+  return scenario_result;
+}
+
+static Chapter4ScenarioResult run_parallel_node_bank_metric_test() {
+  Chapter4ScenarioResult scenario_result = {"Parallel node bank metric", false, 0, 0, 0, 0, {}};
+  PackedNode node_memory[MAXIMUM_NODE_COUNT];
+  Port substitution_memory[MAXIMUM_VARIABLE_COUNT];
+  RedexPair active_pair_memory[MAXIMUM_REDEX_COUNT];
+  initialize_node_memory(node_memory);
+  initialize_substitution_memory(substitution_memory);
+  initialize_redex_memory(active_pair_memory);
+
+  ap_uint<1> allocation_successful = 0;
+  ap_uint<32> allocated_node_count = 0;
+  ap_uint<32> allocated_variable_count = 64;
+  NodeAddress left_a = allocate_node(node_memory, &allocated_node_count, make_port(PORT_TAG_VARIABLE, 51), make_port(PORT_TAG_VARIABLE, 52), &allocation_successful);
+  NodeAddress right_a = allocate_node(node_memory, &allocated_node_count, make_port(PORT_TAG_VARIABLE, 53), make_port(PORT_TAG_VARIABLE, 54), &allocation_successful);
+  NodeAddress left_b = allocate_node(node_memory, &allocated_node_count, make_port(PORT_TAG_VARIABLE, 61), make_port(PORT_TAG_VARIABLE, 62), &allocation_successful);
+  NodeAddress right_b = allocate_node(node_memory, &allocated_node_count, make_port(PORT_TAG_VARIABLE, 63), make_port(PORT_TAG_VARIABLE, 64), &allocation_successful);
+
+  active_pair_memory[0].left_port = make_port(PORT_TAG_CONSTRUCTOR, left_a);
+  active_pair_memory[0].right_port = make_port(PORT_TAG_CONSTRUCTOR, right_a);
+  active_pair_memory[1].left_port = make_port(PORT_TAG_CONSTRUCTOR, left_b);
+  active_pair_memory[1].right_port = make_port(PORT_TAG_CONSTRUCTOR, right_b);
+
+  ap_uint<32> active_pair_count = 2;
+  run_parallel_reducer_scenario(
+      node_memory,
+      substitution_memory,
+      active_pair_memory,
+      &active_pair_count,
+      &allocated_node_count,
+      &allocated_variable_count,
+      2,
+      &scenario_result);
+
+  scenario_result.passed =
+      require_allocation_success(allocation_successful) &&
+      scenario_result.status_code == REDUCER_STATUS_MAXIMUM_STEPS_REACHED &&
+      scenario_result.performed_steps == 2 &&
+      scenario_result.statistics.performed_annihilate_count == 2 &&
+      scenario_result.statistics.dual_commit_cycle_count >= 1 &&
+      scenario_result.statistics.node_access_conflict_count == 0 &&
+      scenario_result.statistics.node_bank_conflict_count >= 1;
   return scenario_result;
 }
 

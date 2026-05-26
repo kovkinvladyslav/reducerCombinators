@@ -11,6 +11,8 @@ static void print_parallel_scenario_header() {
             << std::setw(8) << "AllocC"
             << std::setw(8) << "SubstC"
             << std::setw(8) << "NodeC"
+            << std::setw(8) << "SubBk"
+            << std::setw(8) << "NodeBk"
             << std::setw(8) << "L0Step"
             << std::setw(8) << "L1Step"
             << std::setw(8) << "L1Stall"
@@ -30,6 +32,8 @@ static void print_parallel_scenario_result(const Chapter4ScenarioResult& scenari
             << std::setw(8) << (unsigned)scenario_result.statistics.allocation_contention_count
             << std::setw(8) << (unsigned)scenario_result.statistics.substitution_conflict_count
             << std::setw(8) << (unsigned)scenario_result.statistics.node_access_conflict_count
+            << std::setw(8) << (unsigned)scenario_result.statistics.substitution_bank_conflict_count
+            << std::setw(8) << (unsigned)scenario_result.statistics.node_bank_conflict_count
             << std::setw(8) << (unsigned)scenario_result.statistics.lane_committed_step_count[0]
             << std::setw(8) << (REDUCER_LANE_COUNT > 1 ? (unsigned)scenario_result.statistics.lane_committed_step_count[1] : 0)
             << std::setw(8) << (REDUCER_LANE_COUNT > 1 ? (unsigned)scenario_result.statistics.lane_stall_count[1] : 0)

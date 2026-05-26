@@ -661,3 +661,69 @@ must not increase over try13. It also gives a useful diploma lesson: full
 numeric support is not a binary "enabled versus disabled" question. HLS binding
 policy can move the cost of complete operations between DSP and LUT/FF while
 preserving interaction-combinator semantics.
+
+## Try16 Parallel Bank-Conflict Instrumentation
+
+Try16 returns from numeric-resource policy to memory architecture preparation.
+It does not implement banking yet. Instead, it adds measurement hooks that are
+needed before a banking design can be justified.
+
+The implementation adds explicit bank constants:
+
+```text
+SUBSTITUTION_MEMORY_BANK_COUNT = 4
+NODE_MEMORY_BANK_COUNT = 2
+```
+
+The substitution value matches the existing HLS cyclic partition factor on
+`substitution_memory`. The node value matches the planned low-address-bit
+two-bank node-memory experiment. Two statistics counters were added:
+
+```text
+substitution_bank_conflict_count
+node_bank_conflict_count
+```
+
+These counters are deliberately non-stalling. They record when two lanes touch
+different variables or nodes in the same future bank, but they do not change
+the current conflict decision. This distinction matters:
+
+- exact same variable remains a true substitution conflict and stalls;
+- exact same binary node remains a true node-access conflict and stalls;
+- same bank but different address is only a future memory-bank pressure signal.
+
+Host validation passed with `Overall Result: PASS`. The parallel scenario table
+now includes `SubBk` and `NodeBk` columns. The targeted tests show:
+
+| Scenario | Dual commit | True conflict | Bank metric |
+| --- | ---: | ---: | ---: |
+| Same substitution bank, different variables | yes | `SubstC = 0` | `SubBk = 1` |
+| Same node bank, different node addresses | yes | `NodeC = 0` | `NodeBk = 1` |
+
+Vitis CSIM generated `csim.exe` but failed to launch it in the local Windows
+environment with `couldn't execute ".\csim.exe": invalid argument`, matching
+earlier local launcher failures.
+
+Two synthesis probes were attempted:
+
+| Build | Result | Evidence |
+| --- | --- | --- |
+| Default full `hls_config_parallel.cfg` | timed out after 20 minutes | reached design-size reporting; no full `csynth.rpt` |
+| Focused FPGA-small no-`CALL` bank-metric config | completed | `39085 LUT`, `51611 FF`, `2 DSP`, `4 BRAM`, `II=12`, `-9.93` slack |
+
+The focused result is intentionally not presented as a feasible final parallel
+runtime. It is evidence that the current experimental parallel top remains too
+wide: the statistics port alone is `1152` bits, the main loop still has a
+`Memory Dependency` II violation, and the top exceeds the target Artix-7 LUT/FF
+budget. The useful outcome is architectural visibility. Future memory-banking
+tries can now report whether workloads are blocked by true graph dependencies
+or merely by same-bank memory pressure.
+
+For diploma wording, try16 supports this statement:
+
+```text
+The parallel reducer is currently a measurement platform. It exposes
+dual-commit opportunities, true conflicts, and potential bank conflicts, but
+the synthesis report shows that a practical multi-lane runtime still requires
+smaller control/statistics state and explicit memory arbitration.
+```

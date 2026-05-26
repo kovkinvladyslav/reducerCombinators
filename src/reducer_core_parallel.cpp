@@ -225,12 +225,28 @@ static inline ap_uint<1> lane_conflicts_with_committed_work(
         return 1;
       }
 
+      if (candidate_rule_kind == INTERACTION_RULE_LINK &&
+          committed_rule_kind == INTERACTION_RULE_LINK &&
+          link_rules_touch_same_substitution_bank(candidate_active_pair, committed_active_pair)) {
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+        reducer_statistics->substitution_bank_conflict_count =
+            reducer_statistics->substitution_bank_conflict_count + 1;
+#endif
+      }
+
       if (active_pairs_touch_same_binary_node(candidate_active_pair, committed_active_pair)) {
 #if ENABLE_PARALLEL_REDUCER_STATISTICS
         reducer_statistics->node_access_conflict_count =
             reducer_statistics->node_access_conflict_count + 1;
 #endif
         return 1;
+      }
+
+      if (active_pairs_touch_same_node_bank(candidate_active_pair, committed_active_pair)) {
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+        reducer_statistics->node_bank_conflict_count =
+            reducer_statistics->node_bank_conflict_count + 1;
+#endif
       }
 
       if (produced_rule_needs_allocation(candidate_rule_kind) ||

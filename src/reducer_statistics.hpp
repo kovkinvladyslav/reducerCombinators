@@ -33,6 +33,8 @@ struct ReducerStatistics {
   ap_uint<REDUCER_COUNTER_BIT_COUNT> allocation_contention_count;
   ap_uint<REDUCER_COUNTER_BIT_COUNT> substitution_conflict_count;
   ap_uint<REDUCER_COUNTER_BIT_COUNT> node_access_conflict_count;
+  ap_uint<REDUCER_COUNTER_BIT_COUNT> substitution_bank_conflict_count;
+  ap_uint<REDUCER_COUNTER_BIT_COUNT> node_bank_conflict_count;
   ap_uint<REDUCER_COUNTER_BIT_COUNT> maximum_observed_lane_queue_count[REDUCER_LANE_COUNT];
   ap_uint<REDUCER_COUNTER_BIT_COUNT> maximum_observed_global_queue_count;
 };
@@ -70,6 +72,8 @@ static inline void clear_reducer_statistics(ReducerStatistics* reducer_statistic
   reducer_statistics->allocation_contention_count = 0;
   reducer_statistics->substitution_conflict_count = 0;
   reducer_statistics->node_access_conflict_count = 0;
+  reducer_statistics->substitution_bank_conflict_count = 0;
+  reducer_statistics->node_bank_conflict_count = 0;
   reducer_statistics->maximum_observed_global_queue_count = 0;
 }
 

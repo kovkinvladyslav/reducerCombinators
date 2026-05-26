@@ -74,8 +74,10 @@ int main() {
   Chapter4ScenarioResult parallel_scenario_results[] = {
       run_parallel_independent_void_test(),
       run_parallel_independent_link_test(),
+      run_parallel_substitution_bank_metric_test(),
       run_parallel_independent_erase_test(),
       run_parallel_independent_annihilate_test(),
+      run_parallel_node_bank_metric_test(),
       run_parallel_allocation_contention_test(),
       run_parallel_substitution_conflict_test(),
       run_parallel_queue_helper_spill_test(),

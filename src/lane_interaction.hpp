@@ -22,6 +22,36 @@ static inline Port get_link_variable_port_for_conflict_check(Port left_port, Por
   return make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
 }
 
+static inline ap_uint<32> get_substitution_memory_bank_index(Port variable_port) {
+  return get_port_value(variable_port) % SUBSTITUTION_MEMORY_BANK_COUNT;
+}
+
+static inline ap_uint<32> get_node_memory_bank_index(Port binary_node_port) {
+  return get_port_value(binary_node_port) % NODE_MEMORY_BANK_COUNT;
+}
+
+static inline ap_uint<1> link_rules_touch_same_substitution_bank(
+    RedexPair first_active_pair,
+    RedexPair second_active_pair) {
+  Port first_variable_port = get_link_variable_port_for_conflict_check(
+      first_active_pair.left_port,
+      first_active_pair.right_port);
+  Port second_variable_port = get_link_variable_port_for_conflict_check(
+      second_active_pair.left_port,
+      second_active_pair.right_port);
+
+  if (!is_variable_port(first_variable_port) ||
+      !is_variable_port(second_variable_port)) {
+    return 0;
+  }
+
+  PortValue first_variable_index = get_port_value(first_variable_port);
+  PortValue second_variable_index = get_port_value(second_variable_port);
+  return first_variable_index != second_variable_index &&
+         get_substitution_memory_bank_index(first_variable_port) ==
+             get_substitution_memory_bank_index(second_variable_port);
+}
+
 static inline ap_uint<1> active_pairs_touch_same_binary_node(
     RedexPair first_active_pair,
     RedexPair second_active_pair) {
@@ -34,6 +64,29 @@ static inline ap_uint<1> active_pairs_touch_same_binary_node(
           is_binary_node_port(second_ports[second_port_index]) &&
           get_port_value(first_ports[first_port_index]) == get_port_value(second_ports[second_port_index])) {
         return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+static inline ap_uint<1> active_pairs_touch_same_node_bank(
+    RedexPair first_active_pair,
+    RedexPair second_active_pair) {
+  Port first_ports[2] = {first_active_pair.left_port, first_active_pair.right_port};
+  Port second_ports[2] = {second_active_pair.left_port, second_active_pair.right_port};
+
+  for (int first_port_index = 0; first_port_index < 2; ++first_port_index) {
+    for (int second_port_index = 0; second_port_index < 2; ++second_port_index) {
+      if (is_binary_node_port(first_ports[first_port_index]) &&
+          is_binary_node_port(second_ports[second_port_index])) {
+        PortValue first_node_address = get_port_value(first_ports[first_port_index]);
+        PortValue second_node_address = get_port_value(second_ports[second_port_index]);
+        if (first_node_address != second_node_address &&
+            get_node_memory_bank_index(first_ports[first_port_index]) ==
+                get_node_memory_bank_index(second_ports[second_port_index])) {
+          return 1;
+        }
       }
     }
   }
