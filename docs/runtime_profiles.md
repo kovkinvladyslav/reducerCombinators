@@ -124,6 +124,7 @@ The project currently provides:
 | `hls_config_synth_full.cfg` | Lean full-profile synthesis config |
 | `hls_config_synth_fpga_small.cfg` | Lean FPGA-small synthesis config |
 | `hls_config_synth_full_nostats.cfg` | Full-profile synthesis probe with statistics disabled |
+| `hls_config_synth_full_staged_call_nostats.cfg` | Full-profile synthesis probe with statistics disabled and staged `CALL` enabled |
 | `hls_config_synth_fpga_small_nostats.cfg` | FPGA-small synthesis probe with statistics disabled |
 | `hls_config_synth_fpga_small_nostats_nocall.cfg` | FPGA-small synthesis probe with statistics and `CALL` disabled |
 | `hls_config_synth_fpga_small_staged_call.cfg` | FPGA-small synthesis probe with staged single-lane `CALL` enabled |

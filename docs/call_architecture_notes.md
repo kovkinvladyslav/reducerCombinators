@@ -15,6 +15,9 @@ loop when implemented as one inlined rule body:
 - the FPGA-small no-statistics/no-`CALL` control completed synthesis;
 - that control reported about `4202 LUT`, `2283 FF`, `2 DSP`, and main-loop
   `II=4` on `xc7a35t-cpg236-1`.
+- a full-profile inline/no-statistics synthesis attempt timed out before HW
+  transforms after reaching `82891` compile/link instructions and `8851`
+  post-Performance instructions.
 
 The useful conclusion is not that `CALL` is semantically wrong. The useful
 conclusion is that packed-book instantiation is a different hardware service
@@ -66,6 +69,26 @@ push adjusted root/application redex
 
 The reducer still counts the completed `CALL` as one interaction step. Internal
 service ticks do not increment `performed_steps`.
+
+## Full vs FPGA-Small Evidence
+
+Try1 was first measured in the FPGA-small profile because that is the profile
+intended for Artix-7 feasibility. The full profile remains useful as a semantic
+reference, but it intentionally keeps expensive numeric datapaths.
+
+Measured synthesis outcomes:
+
+| Build | Result | LUT | FF | DSP | II |
+| --- | --- | ---: | ---: | ---: | ---: |
+| FPGA-small no-`CALL` control | completed | 4202 | 2283 | 2 | 4 |
+| FPGA-small staged `CALL` | completed | 7804 | 3254 | 2 | 4 |
+| Full inline `CALL`, no stats | timed out before HW transforms | n/a | n/a | n/a | n/a |
+| Full staged `CALL`, no stats | completed but too large for xc7a35t | 48457 | 32215 | 49 | 67 |
+
+This comparison is important: staging fixes the `CALL` synthesis structure, but
+the full profile is still dominated by F24, division, remainder, and `fmod`.
+That is why the FPGA-small profile remains the correct implementation target for
+resource-feasible hardware experiments.
 
 ## HVM/HVM2 Comparison Angle
 

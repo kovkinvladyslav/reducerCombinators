@@ -14,6 +14,7 @@ Architecture: staged single-lane `CALL`
 | 2026-05-25 | `implemented` | Staged single-lane `CALL` path, config, and architecture note added. |
 | 2026-05-25 | `csim_passed` | Full CSIM and FPGA-small staged-call CSIM passed with `Overall Result: PASS`. |
 | 2026-05-25 | `csynth_passed` | `hls_config_synth_fpga_small_staged_call.cfg` completed C synthesis and generated reports. |
+| 2026-05-26 | `csynth_passed` | Full-profile staged-call synthesis completed; full-profile inline-call/no-stats synthesis timed out before HW transforms. |
 
 ## Goal
 
@@ -222,6 +223,8 @@ Main loop II: 4
 - Full CSIM: passed with `Overall Result: PASS` in `interactReduce_csim_full_try1`.
 - FPGA-small CSIM: passed with `Overall Result: PASS` in `interactReduce_csim_small_try1`.
 - CSYNTH: passed in `interactReduce_csynth_small_staged_call_try1`.
+- Full inline/no-statistics CSYNTH: timed out after 10 minutes in `interactReduce_csynth_full_nostats_try1`.
+- Full staged/no-statistics CSYNTH: completed in `interactReduce_csynth_full_staged_call_nostats_try1`.
 
 ## HLS Evidence
 
@@ -248,6 +251,13 @@ LUT 4202, FF 2283, DSP 2, II 4
 
 try1 staged CALL:
 LUT 7804, FF 3254, DSP 2, II 4
+
+full inline/no-statistics:
+timed out before HW transforms; design size reached 82891 compile/link
+instructions and 8851 instructions after Performance
+
+full staged/no-statistics:
+LUT 48457, FF 32215, DSP 49, II 67
 ```
 
 Interpretation:
@@ -257,6 +267,13 @@ use increased over the no-`CALL` control, as expected, but remained far below
 the old full inline synthesis result and completed on the Artix-7 target. The
 remaining II limit is the known active-pair queue memory dependency, not packed
 book expansion.
+
+The full-profile staged run also completed, which shows the staged `CALL`
+architecture is not limited to the small profile. Its result is not a feasible
+xc7a35t implementation because full numerics still synthesize F24, division,
+remainder, and `fmod` datapaths: `48457 LUT`, `32215 FF`, `49 DSP`, and `II=67`.
+This preserves the distinction between a full semantic reference profile and the
+FPGA-small measurement profile.
 
 ## Conclusion
 
