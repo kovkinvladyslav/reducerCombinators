@@ -1890,3 +1890,51 @@ rule subset and nearly halves the scheduler FF estimate.
 The remaining critical path now points into staged `LINK` substitution read and
 append-result status handling. The next scheduler experiment should preserve
 the compact buffer and split or specialize that `LINK` append/status path.
+
+## Try38 Direct Staged LINK Append
+
+Try38 specializes the selected-command staged `LINK` append path under:
+
+```text
+ENABLE_PARALLEL_DIRECT_LINK_APPEND
+```
+
+The gate is default-off and is used only with the try37 compact produced-pair
+profile. In that profile, selected-command `LINK` emits at most one produced
+pair and the buffer is freshly initialized for the selected command. Therefore
+the staged `LINK` append-result tick can write slot `0` directly and set the
+produced-pair count to `1`, instead of calling the generic checked
+`append_produced_active_pair` helper.
+
+Full-profile CSIM and FPGA-small CSIM both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try35 single-site refill pop | 4003 | 2114 | 0 | 0 | 1 | `-2.05` | `107.01 MHz` |
+| Try37 compact produced buffer | 3998 | 1148 | 0 | 0 | 1 | `-2.00` | `107.48 MHz` |
+| Try38 direct staged `LINK` append | 3749 | 1148 | 0 | 0 | 1 | `-1.97` | `107.85 MHz` |
+
+This is still not timing-clean, but it improves the best focused parallel
+scheduler point. The design-size report drops to `574` final HW-transform
+instructions from try37's `592`, and the reported critical path no longer
+passes through the generic append helper. The remaining path is now clearer:
+
+```text
+substitution_memory_0_load
+selected_command_link_previous_port
+unbound-marker comparison
+local_status_code phi/store
+```
+
+For diploma wording:
+
+```text
+Try38 shows that rule-specific specialization can remove generic runtime
+bookkeeping from the scheduler datapath. In the focused parallel profile,
+staged LINK has a statically bounded one-pair emission, so a direct slot write
+is enough. The improvement is measurable, but the next limiting structure is
+the staged LINK substitution read/compare/status dependency itself.
+```
+
+The next experiment should preserve try38 and split the `LINK` previous-port
+comparison or unbound-marker decision from the status/control update.

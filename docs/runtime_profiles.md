@@ -360,3 +360,17 @@ completed at `3998 LUT`, `1148 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and
 `-2.00` slack. This is not timing-clean, but it is the best focused parallel
 scheduler result so far and shows that profile-specific state-width reduction
 is as important as profile-specific operation gating.
+
+Try38 adds direct staged `LINK` append on top of try37:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_staged_link_split_classify_split_writeback_split_refill_singlepop_compact_produced_direct_link_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_DIRECT_LINK_APPEND` together with the compact
+produced buffer. The gate is only valid for the focused rule subset where a
+selected-command staged `LINK` emits at most one produced pair. Focused CSYNTH
+completed at `3749 LUT`, `1148 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and
+`-1.97` slack. This is still not timing-clean, but it is the best focused
+parallel scheduler point so far and documents that rule-specific append
+specialization is useful after state-width reduction.

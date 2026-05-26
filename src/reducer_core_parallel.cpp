@@ -1632,6 +1632,13 @@ extern "C" void reducer_core_parallel(
             Port unbound_marker = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
 #if ENABLE_PARALLEL_SPLIT_LINK_WRITEBACK
             if (selected_command_link_emit_pair) {
+#if ENABLE_PARALLEL_DIRECT_LINK_APPEND && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+              selected_command_produced_active_pairs.produced_pairs[0].left_port =
+                  selected_command_link_previous_port;
+              selected_command_produced_active_pairs.produced_pairs[0].right_port =
+                  selected_command_link_other_port;
+              selected_command_produced_active_pairs.produced_pair_count = 1;
+#else
               if (!append_produced_active_pair(
                       &selected_command_produced_active_pairs,
                       selected_command_link_previous_port,
@@ -1650,6 +1657,7 @@ extern "C" void reducer_core_parallel(
                 local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
 #endif
               }
+#endif
             }
 #else
             if (selected_command_link_previous_port == unbound_marker) {
