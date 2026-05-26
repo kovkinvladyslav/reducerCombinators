@@ -374,3 +374,18 @@ completed at `3749 LUT`, `1148 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and
 `-1.97` slack. This is still not timing-clean, but it is the best focused
 parallel scheduler point so far and documents that rule-specific append
 specialization is useful after state-width reduction.
+
+Try39 adds a staged `LINK` read-decode bit on top of try38:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_staged_link_split_classify_split_writeback_split_refill_singlepop_compact_produced_direct_link_read_decode_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_LINK_READ_DECODE`, which stores a one-bit
+`selected_command_link_previous_is_unbound` predicate during the staged
+substitution read and uses that bit during writeback. Focused CSYNTH completed
+at `3751 LUT`, `1149 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and about
+`-2.00` slack. This is worse than try38. The report shows the new predicate
+register in the critical path, so the next focused profile should return to
+try38 and decouple successful staged `LINK` service from `local_status_code`
+selection rather than caching the unbound comparison.

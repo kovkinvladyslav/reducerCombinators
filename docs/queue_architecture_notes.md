@@ -1938,3 +1938,62 @@ the staged LINK substitution read/compare/status dependency itself.
 
 The next experiment should preserve try38 and split the `LINK` previous-port
 comparison or unbound-marker decision from the status/control update.
+
+## Try39 Staged LINK Read-Decode Bit
+
+Try39 tests that recommendation under:
+
+```text
+ENABLE_PARALLEL_LINK_READ_DECODE
+```
+
+It preserves the try38 focused base:
+
+```text
+compact produced-pair buffer
+direct selected-command staged LINK append
+single-site global refill pop
+```
+
+The change is deliberately small. During the staged `LINK` substitution-read
+tick, the reducer stores the previous substitution port and also stores a
+one-bit predicate:
+
+```text
+selected_command_link_previous_is_unbound
+```
+
+The writeback tick then uses that bit instead of comparing the full previous
+port against the unbound marker again. Full-profile CSIM and FPGA-small CSIM
+both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try38 direct staged `LINK` append | 3749 | 1148 | 0 | 0 | 1 | `-1.97` | `107.85 MHz` |
+| Try39 staged `LINK` read-decode bit | 3751 | 1149 | 0 | 0 | 1 | about `-2.00` | `107.48 MHz` |
+
+This is a negative result. The cached predicate does not remove the critical
+path; it becomes part of it. Vitis reports:
+
+```text
+substitution_memory_0_load
+previous_port
+selected_command_link_previous_is_unbound
+selected_command_link_previous_is_unbound_load
+local_status_code phi/store
+```
+
+For diploma wording:
+
+```text
+Try39 shows that simply caching a decoded control predicate is insufficient
+when the scheduler still consumes that predicate in the same loop-carried
+service controller. The limiting structure is not only the full-width equality
+comparison; it is the coupling between substitution-memory read results and
+status/service selection in the selected-command pipeline.
+```
+
+The next experiment should return to try38 and remove successful selected
+`LINK` execution from the `local_status_code` mux, for example by making success
+the implicit fall-through path and routing only error cases through an explicit
+error-valid/status register.
