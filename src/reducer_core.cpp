@@ -121,8 +121,15 @@ extern "C" void reducer_core(
   ap_uint<32> produced_pair_flush_index = 0;
   InteractionRuleKind buffered_rule_kind = INTERACTION_RULE_UNSUPPORTED;
 #endif
+#if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+  ap_uint<1> pending_completion_active = 0;
+  InteractionRuleKind pending_completion_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+#endif
 
   while (
+#if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+      pending_completion_active ||
+#endif
 #if ENABLE_STAGED_CALL
       call_state.active ||
 #endif
@@ -141,6 +148,18 @@ extern "C" void reducer_core(
     update_maximum_observed_counter(
         &reducer_statistics->maximum_observed_allocated_variable_count,
         *allocated_variable_count);
+#endif
+
+#if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+    if (pending_completion_active) {
+      record_reducer_completed_interaction(
+          reducer_statistics,
+          pending_completion_rule_kind,
+          &executed_steps);
+      pending_completion_active = 0;
+      pending_completion_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+      continue;
+    }
 #endif
 
     InteractionResult interaction_result = make_interaction_result(1);
@@ -172,10 +191,15 @@ extern "C" void reducer_core(
           continue;
         }
 #endif
+#if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+        pending_completion_active = 1;
+        pending_completion_rule_kind = buffered_rule_kind;
+#else
         record_reducer_completed_interaction(
             reducer_statistics,
             buffered_rule_kind,
             &executed_steps);
+#endif
         continue;
       }
       continue;
@@ -212,10 +236,15 @@ extern "C" void reducer_core(
       if (call_state.active) {
         continue;
       }
+#if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+      pending_completion_active = 1;
+      pending_completion_rule_kind = interaction_rule_kind;
+#else
       record_reducer_completed_interaction(
           reducer_statistics,
           interaction_rule_kind,
           &executed_steps);
+#endif
       continue;
 #else
       interaction_result = step_staged_call(
@@ -514,10 +543,16 @@ extern "C" void reducer_core(
       break;
     }
 
+#if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+    pending_completion_active = 1;
+    pending_completion_rule_kind = interaction_rule_kind;
+    continue;
+#else
     record_reducer_completed_interaction(
         reducer_statistics,
         interaction_rule_kind,
         &executed_steps);
+#endif
   }
 
   if (local_status_code == REDUCER_STATUS_SUCCESS &&

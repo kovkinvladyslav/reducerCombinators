@@ -256,9 +256,9 @@ static inline Port apply_numeric_operation(
   }
 #endif
 
-  if (reducer_statistics != 0) {
-    reducer_statistics->invalid_numeric_operation_count = reducer_statistics->invalid_numeric_operation_count + 1;
-  }
+#if ENABLE_REDUCER_STATISTICS
+  reducer_statistics->invalid_numeric_operation_count = reducer_statistics->invalid_numeric_operation_count + 1;
+#endif
   *status_code = REDUCER_STATUS_UNSUPPORTED_NUMERIC_TYPE;
   return make_u24_number_port(0);
 }

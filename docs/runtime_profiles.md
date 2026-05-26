@@ -130,6 +130,8 @@ The project currently provides:
 | `hls_config_synth_fpga_small_staged_call.cfg` | FPGA-small synthesis probe with staged single-lane `CALL` enabled |
 | `hls_config_fpga_small_produced_buffer.cfg` | FPGA-small CSIM config with staged `CALL` and produced-pair buffer enabled |
 | `hls_config_synth_fpga_small_produced_buffer.cfg` | FPGA-small synthesis probe with staged `CALL` and produced-pair buffer enabled |
+| `hls_config_fpga_small_deferred_completion.cfg` | FPGA-small CSIM config with staged `CALL`, produced-pair buffer, and deferred completion accounting enabled |
+| `hls_config_synth_fpga_small_deferred_completion.cfg` | FPGA-small synthesis probe with staged `CALL`, produced-pair buffer, and deferred completion accounting enabled |
 | `hls_config_synth_structural_core.cfg` | Structural IC core synthesis probe: `LINK`, `VOID`, `ERASE`, `ANNIHILATE`, `COMMUTE` |
 
 The `nostats` synthesis configs disable `ENABLE_REDUCER_STATISTICS` and
@@ -154,6 +156,12 @@ partial buffering preserves correctness and completes synthesis, but does not
 reduce the main-loop `II=4` queue-memory dependency. Try3 extended the same
 gate to all single-lane produced active pairs and improved final II to `3`, but
 moved the limiter to a long control/timing path.
+
+The deferred-completion configs are a scheduler-boundary experiment. They keep
+the produced-pair buffer and add a one-entry pending completion service so rule
+execution no longer writes `executed_steps` in the same scheduled cycle. Try5
+showed this can reach final loop `II=1` in FPGA-small synthesis, at higher LUT
+and FF cost.
 
 ## Suggested Diploma Wording
 

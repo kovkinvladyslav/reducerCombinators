@@ -158,3 +158,49 @@ only expressed as branches inside one pipelined loop. Candidate directions:
 The next try should be judged by whether it changes the current limiter from
 the broad resource/timing path and improves either slack or final II without
 undoing try3's single-owner queue writeback.
+
+## Try5 Deferred Completion Accounting
+
+Try5 added a one-entry pending-completion service under
+`ENABLE_DEFERRED_COMPLETION_ACCOUNTING`. Instead of writing
+`executed_steps` and rule statistics in the same cycle as rule execution or
+staged `CALL` setup, the reducer records the completed rule kind and performs
+completion accounting in the next service tick.
+
+This is a real hardware boundary, not just reordered branches. It directly
+targets the try4 critical path from staged `CALL` capacity logic into the
+`executed_steps` store.
+
+Try5 passed full-profile CSIM and FPGA-small deferred-completion CSIM. The
+FPGA-small synthesis result was:
+
+| Build | LUT | FF | DSP | Main loop II | Timing/slack | Main result |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| FPGA-small single commit try3 | 8323 | 3277 | 2 | 3 | `-8.89` | queue dependency removed, timing limited |
+| FPGA-small phase control try4 | 8306 | 3250 | 2 | 3 | `-8.89` | branch reordering not enough |
+| FPGA-small deferred completion try5 | 10591 | 4425 | 2 | 1 | `-1.21` | all loop constraints satisfied |
+
+The key architectural result is that the reducer loop reached final `II=1`.
+Vitis reported all loop constraints satisfied and estimated Fmax
+`117.51 MHz`. The estimated clock was `8.510 ns` against a `10 ns` target with
+`2.70 ns` uncertainty.
+
+The tradeoff is area and service latency. Rule helpers are now visible as
+separate RTL modules with multi-cycle latencies, for example:
+
+- `begin_staged_call_buffered`: up to 3 cycles;
+- `apply_operate_rule_buffered`: up to 5 cycles;
+- `step_staged_call_buffered`: up to 2 cycles.
+
+For the diploma, this is strong evidence that the reducer needs explicit
+runtime services around queue commit, staged `CALL`, and completion accounting.
+It also gives a clean throughput/area tradeoff table: try3 is smaller but
+`II=3`; try5 is larger but scheduler-clean at `II=1`.
+
+## Next Area Recovery Step
+
+The next architecture attempt should keep try5's completion boundary and reduce
+the extra LUT/FF cost. A focused experiment is selective helper partitioning:
+keep expensive rules such as `CALL`, `OPERATE`, `SWITCH`, and `COMMUTE` as
+separate staged/service modules, while allowing tiny rules such as `VOID`,
+`LINK`, `ERASE`, and `ANNIHILATE` to inline or share a smaller local datapath.
