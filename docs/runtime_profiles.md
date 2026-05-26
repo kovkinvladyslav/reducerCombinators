@@ -535,3 +535,21 @@ full rule-kind path. In try47, HLS still had to synthesize
 `get_rule_kind_from_selected_class` for compatibility. Future focused profiles
 should either specialize a single non-link rule from the try41 baseline or
 remove `selected_command_rule_kind` from the focused hot path entirely.
+
+Try48 implements that class-only selected-command control path:
+
+```text
+hls_config_try48_true_class_only_selected_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED`, which decodes the
+focused selected command directly into `LINK`, `VOID`, `ERASE`, `ANNIHILATE`,
+or `UNSUPPORTED`, and avoids assigning `selected_command_rule_kind` in the
+focused CLASSIFY tick. Full CSIM and FPGA-small CSIM passed. Focused CSYNTH
+completed at `3791 LUT`, `1162 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and
+about `-1.16` slack with estimated Fmax `118.28 MHz`.
+
+This is a neutral negative profile result. It proves that try47's regression
+was caused by the compatibility rule-kind round trip, but it does not improve
+over try41. The next useful profile should target selected non-link
+node/status datapath structure, not selected-command classification.

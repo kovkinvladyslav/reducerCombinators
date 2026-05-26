@@ -85,7 +85,7 @@ static inline void defer_parallel_status(
 }
 #endif
 
-#if ENABLE_PARALLEL_SELECTED_COMPACT_CLASSIFY || ENABLE_PARALLEL_COMPACT_CLASSIFY_SERVICE || ENABLE_PARALLEL_NARROW_SELECTED_CLASS
+#if ENABLE_PARALLEL_SELECTED_COMPACT_CLASSIFY || ENABLE_PARALLEL_COMPACT_CLASSIFY_SERVICE || ENABLE_PARALLEL_NARROW_SELECTED_CLASS || ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
 static inline InteractionRuleKind get_selected_compact_rule_kind(
     Port left_port,
     Port right_port) {
@@ -122,6 +122,46 @@ static inline InteractionRuleKind get_selected_compact_rule_kind(
 #endif
 
   return INTERACTION_RULE_UNSUPPORTED;
+}
+#endif
+
+#if ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
+static inline ap_uint<3> get_selected_direct_class(
+    Port left_port,
+    Port right_port) {
+  PortTag left_port_tag = get_port_tag(left_port);
+  PortTag right_port_tag = get_port_tag(right_port);
+
+  if (!is_supported_port_tag(left_port_tag) || !is_supported_port_tag(right_port_tag)) {
+    return SELECTED_CLASS_UNSUPPORTED;
+  }
+
+#if ENABLE_RULE_LINK
+  if (is_variable_port(left_port) || is_variable_port(right_port)) {
+    return SELECTED_CLASS_LINK;
+  }
+#endif
+
+  if (is_nullary_node_port(left_port) && is_nullary_node_port(right_port)) {
+    return SELECTED_CLASS_VOID;
+  }
+
+#if ENABLE_RULE_ERASE
+  if ((is_erasure_port(left_port) && is_binary_node_port(right_port)) ||
+      (is_erasure_port(right_port) && is_binary_node_port(left_port))) {
+    return SELECTED_CLASS_ERASE;
+  }
+#endif
+
+#if ENABLE_RULE_ANNIHILATE
+  if (is_binary_node_port(left_port) &&
+      is_binary_node_port(right_port) &&
+      ports_have_same_tag(left_port, right_port)) {
+    return SELECTED_CLASS_ANNIHILATE;
+  }
+#endif
+
+  return SELECTED_CLASS_UNSUPPORTED;
 }
 #endif
 
@@ -964,7 +1004,7 @@ extern "C" void reducer_core_parallel(
   ap_uint<1> selected_command_lane_index = 0;
   RedexPair selected_command_active_pair;
   InteractionRuleKind selected_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
-#if ENABLE_PARALLEL_NARROW_SELECTED_CLASS
+#if ENABLE_PARALLEL_NARROW_SELECTED_CLASS || ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
   ap_uint<3> selected_command_class = SELECTED_CLASS_UNSUPPORTED;
 #endif
   ProducedActivePairs selected_command_produced_active_pairs;
@@ -1419,7 +1459,7 @@ extern "C" void reducer_core_parallel(
       selected_command_valid = 0;
       selected_command_lane_index = 0;
       selected_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
-#if ENABLE_PARALLEL_NARROW_SELECTED_CLASS
+#if ENABLE_PARALLEL_NARROW_SELECTED_CLASS || ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
       selected_command_class = SELECTED_CLASS_UNSUPPORTED;
 #endif
       selected_command_produced_pair_index = 0;
@@ -1647,7 +1687,11 @@ extern "C" void reducer_core_parallel(
 #else
       if (selected_command_valid && local_status_code == REDUCER_STATUS_SUCCESS) {
 #endif
-#if ENABLE_PARALLEL_NARROW_SELECTED_CLASS
+#if ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
+        selected_command_class = get_selected_direct_class(
+            selected_command_active_pair.left_port,
+            selected_command_active_pair.right_port);
+#elif ENABLE_PARALLEL_NARROW_SELECTED_CLASS
         selected_command_class = get_narrow_selected_class(
             selected_command_active_pair.left_port,
             selected_command_active_pair.right_port);
@@ -1897,7 +1941,7 @@ extern "C" void reducer_core_parallel(
         } else {
 #endif
 #if ENABLE_PARALLEL_STAGED_LINK && ENABLE_RULE_LINK
-#if ENABLE_PARALLEL_NARROW_SELECTED_CLASS
+#if ENABLE_PARALLEL_NARROW_SELECTED_CLASS || ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
         if (selected_command_class == SELECTED_CLASS_LINK) {
 #else
         if (selected_command_rule_kind == INTERACTION_RULE_LINK) {
@@ -2169,6 +2213,53 @@ extern "C" void reducer_core_parallel(
           parallel_service_phase = PARALLEL_SERVICE_COMMIT;
         } else {
 #endif
+#if ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
+        ap_uint<1> lane_committed = 0;
+        if (selected_command_class == SELECTED_CLASS_VOID) {
+          RedexPair discarded_active_pair;
+          active_pair_queue_pop_local(
+              &reducer_lanes[selected_command_lane_index],
+              &discarded_active_pair);
+          initialize_produced_active_pairs(&selected_command_produced_active_pairs);
+#if ENABLE_REDUCER_STATISTICS
+          count_executed_rule(reducer_statistics, INTERACTION_RULE_VOID);
+#endif
+          lane_committed = 1;
+        } else if (selected_command_class == SELECTED_CLASS_ERASE ||
+                   selected_command_class == SELECTED_CLASS_ANNIHILATE) {
+          InteractionRuleKind selected_non_link_rule_kind =
+              (selected_command_class == SELECTED_CLASS_ERASE)
+                  ? INTERACTION_RULE_ERASE
+                  : INTERACTION_RULE_ANNIHILATE;
+          lane_committed = execute_selected_non_link_active_pair_without_queue_commit(
+              node_memory,
+              substitution_memory,
+              book_definition_headers,
+              book_redex_memory,
+              book_node_memory,
+              book_definition_count,
+              &reducer_lanes[selected_command_lane_index],
+              allocated_node_count,
+              allocated_variable_count,
+              selected_command_active_pair,
+              selected_non_link_rule_kind,
+              &selected_command_produced_active_pairs,
+              reducer_statistics,
+              &local_status_code);
+        } else {
+          RedexPair discarded_active_pair;
+          active_pair_queue_pop_local(
+              &reducer_lanes[selected_command_lane_index],
+              &discarded_active_pair);
+          initialize_produced_active_pairs(&selected_command_produced_active_pairs);
+          InteractionResult unsupported_result = make_interaction_result(0);
+          unsupported_result.unsupported_interaction = 1;
+          record_parallel_error_status(
+              reducer_statistics,
+              unsupported_result,
+              &local_status_code);
+        }
+#else
 #if ENABLE_PARALLEL_STAGED_LINK
         ap_uint<1> lane_committed = execute_selected_non_link_active_pair_without_queue_commit(
             node_memory,
@@ -2201,6 +2292,7 @@ extern "C" void reducer_core_parallel(
             &selected_command_produced_active_pairs,
             reducer_statistics,
             &local_status_code);
+#endif
 #endif
         if (lane_committed) {
 #if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
