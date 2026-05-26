@@ -2199,3 +2199,57 @@ classification fan-in directly. One candidate is a compact selected-command
 class field computed during SELECT, so EXECUTE routes on a few one-bit class
 flags rather than repeatedly carrying the full interaction-rule decode through
 the service controller.
+
+## Try44 Compact Selected-Command Classify
+
+Try44 tests that candidate directly under:
+
+```text
+ENABLE_PARALLEL_SELECTED_COMPACT_CLASSIFY
+```
+
+The focused parallel synthesis profile disables `COMMUTE`, `OPERATE`,
+`SWITCH`, and `CALL`, so the selected-command scheduler only needs to
+distinguish `LINK`, `VOID`, `ERASE`, `ANNIHILATE`, and unsupported pairs.
+Try44 adds a compact classifier for that subset and computes the selected rule
+kind during SELECT, routing directly to EXECUTE instead of going through the
+split CLASSIFY service.
+
+Full-profile CSIM and FPGA-small CSIM both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try41 staged `LINK` decide/write split | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+| Try43 staged non-link validation | 3754 | 1288 | 0 | 0 | 1 | `-4.92` | `81.81 MHz` |
+| Try44 compact classify in SELECT | 3842 | 1156 | 0 | 0 | 1 | `-7.29` | `68.57 MHz` |
+
+This is a negative result. The classifier is smaller than the generic
+interaction dispatch, but SELECT already owns global active-pair load,
+lane-local queue refill, and candidate selection. Placing classification in
+that same service tick couples queue movement to rule decoding and creates the
+new top critical path:
+
+```text
+global active-pair load
+local lane queue right-port store/load
+candidate active pair
+compact rule classifier
+selected-command rule-kind mux
+execute selected non-link path
+```
+
+For diploma wording:
+
+```text
+Try44 demonstrates that reducing a Boolean rule classifier is not sufficient
+when it is placed in the wrong hardware service phase. Computing selected-rule
+classification during SELECT moved work into the queue/refill path and
+regressed timing from 118.28 MHz to 68.57 MHz. The scheduler therefore needs
+both compact rule encoding and phase placement that keeps queue movement
+separate from rule execution control.
+```
+
+The next experiment should return to try41 and keep classification outside
+SELECT. A more promising direction is a compact classifier in the existing
+CLASSIFY service, or a narrow class field produced by a dedicated classify tick
+that does not also perform lane refill/global queue movement.

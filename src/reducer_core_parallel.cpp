@@ -85,6 +85,46 @@ static inline void defer_parallel_status(
 }
 #endif
 
+#if ENABLE_PARALLEL_SELECTED_COMPACT_CLASSIFY
+static inline InteractionRuleKind get_selected_compact_rule_kind(
+    Port left_port,
+    Port right_port) {
+  PortTag left_port_tag = get_port_tag(left_port);
+  PortTag right_port_tag = get_port_tag(right_port);
+
+  if (!is_supported_port_tag(left_port_tag) || !is_supported_port_tag(right_port_tag)) {
+    return INTERACTION_RULE_UNSUPPORTED;
+  }
+
+#if ENABLE_RULE_LINK
+  if (is_variable_port(left_port) || is_variable_port(right_port)) {
+    return INTERACTION_RULE_LINK;
+  }
+#endif
+
+  if (is_nullary_node_port(left_port) && is_nullary_node_port(right_port)) {
+    return INTERACTION_RULE_VOID;
+  }
+
+#if ENABLE_RULE_ERASE
+  if ((is_erasure_port(left_port) && is_binary_node_port(right_port)) ||
+      (is_erasure_port(right_port) && is_binary_node_port(left_port))) {
+    return INTERACTION_RULE_ERASE;
+  }
+#endif
+
+#if ENABLE_RULE_ANNIHILATE
+  if (is_binary_node_port(left_port) &&
+      is_binary_node_port(right_port) &&
+      ports_have_same_tag(left_port, right_port)) {
+    return INTERACTION_RULE_ANNIHILATE;
+  }
+#endif
+
+  return INTERACTION_RULE_UNSUPPORTED;
+}
+#endif
+
 static inline void increment_lane_committed_step_counter(
     ReducerStatistics* reducer_statistics,
     ap_uint<32> lane_index) {
@@ -1367,7 +1407,11 @@ extern "C" void reducer_core_parallel(
           selected_command_valid = 1;
           selected_command_lane_index = lane_index;
           selected_command_active_pair = candidate_active_pair;
-#if !ENABLE_PARALLEL_SPLIT_SELECTED_CLASSIFY
+#if ENABLE_PARALLEL_SELECTED_COMPACT_CLASSIFY
+          selected_command_rule_kind = get_selected_compact_rule_kind(
+              candidate_active_pair.left_port,
+              candidate_active_pair.right_port);
+#elif !ENABLE_PARALLEL_SPLIT_SELECTED_CLASSIFY
           selected_command_rule_kind = get_interaction_rule_kind(
               candidate_active_pair.left_port,
               candidate_active_pair.right_port);
@@ -1378,7 +1422,9 @@ extern "C" void reducer_core_parallel(
       }
 
       if (selected_command_valid) {
-#if ENABLE_PARALLEL_SPLIT_SELECTED_CLASSIFY
+#if ENABLE_PARALLEL_SELECTED_COMPACT_CLASSIFY
+        parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+#elif ENABLE_PARALLEL_SPLIT_SELECTED_CLASSIFY
         parallel_service_phase = PARALLEL_SERVICE_CLASSIFY;
 #else
         parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
