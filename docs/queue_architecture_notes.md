@@ -2093,3 +2093,53 @@ scheduler datapath.
 The next experiment should preserve try41 and target the new non-link
 produced-pair/node-check path, especially `ERASE`/`ANNIHILATE` output
 construction in the focused rule subset.
+
+## Try42 Direct Non-Link Outputs
+
+Try42 tests the most direct version of that recommendation under:
+
+```text
+ENABLE_PARALLEL_DIRECT_NON_LINK_OUTPUTS
+```
+
+It preserves the try41 staged `LINK` decide/write split and adds direct
+selected-command output helpers for `ERASE` and `ANNIHILATE`. In the focused
+profile, the produced buffer is already compacted to two entries and
+`COMMUTE`, `OPERATE`, `SWITCH`, and `CALL` are disabled. Therefore valid
+`ERASE` and `ANNIHILATE` interactions always emit exactly two produced pairs.
+The try writes those two slots directly instead of calling
+`append_produced_active_pair` twice.
+
+Full-profile CSIM and FPGA-small CSIM both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try41 staged `LINK` decide/write split | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+| Try42 direct non-link outputs | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+
+This is a negative result. Direct two-slot writes for `ERASE`/`ANNIHILATE` do
+not change the hardware point, so the generic append helper was not the current
+limiter after try37's compact produced buffer. The critical path remains:
+
+```text
+selected_command_produced_active_pairs.produced_pairs.left_port
+port tag / erasure selection
+node address selection
+node address range check
+local_status_code phi/store
+```
+
+For diploma wording:
+
+```text
+Try42 shows that once the produced-pair buffer is compacted, replacing generic
+append calls with direct slot writes does not further improve the focused
+parallel scheduler. HLS already reduces that structure well enough. The
+remaining timing pressure is control/status coupling around selected non-link
+node validation, not produced-pair writeback.
+```
+
+The next experiment should therefore avoid another append specialization.
+Instead, it should stage selected non-link node validation and node-data capture
+before produced-pair emission, separating `ERASE`/`ANNIHILATE` validity checks
+from the `local_status_code` update.

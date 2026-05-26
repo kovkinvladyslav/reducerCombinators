@@ -246,6 +246,61 @@ static inline ap_uint<1> execute_lane_active_pair_without_queue_commit(
 }
 
 #if ENABLE_PARALLEL_STAGED_LINK
+#if ENABLE_PARALLEL_DIRECT_NON_LINK_OUTPUTS && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+static inline InteractionResult apply_direct_selected_erase_rule(
+    PackedNode node_memory[MAXIMUM_NODE_COUNT],
+    ProducedActivePairs* produced_active_pairs,
+    Port left_port,
+    Port right_port) {
+  InteractionResult result = make_interaction_result(1);
+  Port erasure_port = left_port;
+  Port node_port = right_port;
+  if (!is_erasure_port(erasure_port)) {
+    erasure_port = right_port;
+    node_port = left_port;
+  }
+
+  NodeAddress node_address = get_port_value(node_port);
+  if (node_address >= MAXIMUM_NODE_COUNT) {
+    result.success = 0;
+    result.unsupported_interaction = 1;
+    return result;
+  }
+
+  PackedNode node_data = node_memory[node_address];
+  produced_active_pairs->produced_pairs[0].left_port = erasure_port;
+  produced_active_pairs->produced_pairs[0].right_port = get_first_auxiliary_port(node_data);
+  produced_active_pairs->produced_pairs[1].left_port = erasure_port;
+  produced_active_pairs->produced_pairs[1].right_port = get_second_auxiliary_port(node_data);
+  produced_active_pairs->produced_pair_count = 2;
+  return result;
+}
+
+static inline InteractionResult apply_direct_selected_annihilate_rule(
+    PackedNode node_memory[MAXIMUM_NODE_COUNT],
+    ProducedActivePairs* produced_active_pairs,
+    Port left_port,
+    Port right_port) {
+  InteractionResult result = make_interaction_result(1);
+  NodeAddress left_node_address = get_port_value(left_port);
+  NodeAddress right_node_address = get_port_value(right_port);
+  if (left_node_address >= MAXIMUM_NODE_COUNT || right_node_address >= MAXIMUM_NODE_COUNT) {
+    result.success = 0;
+    result.unsupported_interaction = 1;
+    return result;
+  }
+
+  PackedNode left_node = node_memory[left_node_address];
+  PackedNode right_node = node_memory[right_node_address];
+  produced_active_pairs->produced_pairs[0].left_port = get_first_auxiliary_port(left_node);
+  produced_active_pairs->produced_pairs[0].right_port = get_first_auxiliary_port(right_node);
+  produced_active_pairs->produced_pairs[1].left_port = get_second_auxiliary_port(left_node);
+  produced_active_pairs->produced_pairs[1].right_port = get_second_auxiliary_port(right_node);
+  produced_active_pairs->produced_pair_count = 2;
+  return result;
+}
+#endif
+
 static inline ap_uint<1> execute_selected_non_link_active_pair_without_queue_commit(
     PackedNode node_memory[MAXIMUM_NODE_COUNT],
     Port substitution_memory[MAXIMUM_VARIABLE_COUNT],
@@ -273,20 +328,36 @@ static inline ap_uint<1> execute_selected_non_link_active_pair_without_queue_com
       break;
 #if ENABLE_RULE_ERASE
     case INTERACTION_RULE_ERASE:
+#if ENABLE_PARALLEL_DIRECT_NON_LINK_OUTPUTS && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+      interaction_result = apply_direct_selected_erase_rule(
+          node_memory,
+          produced_active_pairs,
+          active_pair_to_commit.left_port,
+          active_pair_to_commit.right_port);
+#else
       interaction_result = apply_lane_erase_rule(
           node_memory,
           produced_active_pairs,
           active_pair_to_commit.left_port,
           active_pair_to_commit.right_port);
+#endif
       break;
 #endif
 #if ENABLE_RULE_ANNIHILATE
     case INTERACTION_RULE_ANNIHILATE:
+#if ENABLE_PARALLEL_DIRECT_NON_LINK_OUTPUTS && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+      interaction_result = apply_direct_selected_annihilate_rule(
+          node_memory,
+          produced_active_pairs,
+          active_pair_to_commit.left_port,
+          active_pair_to_commit.right_port);
+#else
       interaction_result = apply_lane_annihilate_rule(
           node_memory,
           produced_active_pairs,
           active_pair_to_commit.left_port,
           active_pair_to_commit.right_port);
+#endif
       break;
 #endif
 #if ENABLE_RULE_COMMUTE || ENABLE_RULE_OPERATE || ENABLE_RULE_SWITCH || ENABLE_RULE_CALL
