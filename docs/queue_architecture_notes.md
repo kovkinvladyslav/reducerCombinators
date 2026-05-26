@@ -303,3 +303,57 @@ The next try should remove or restructure the separate
 produced-buffer service using the remaining count or a compact service phase,
 so buffer activity is derived from one narrow state instead of maintained as a
 separate 1-bit flag with many incoming rule-specific assignments.
+
+## Try9 Derived Produced-Buffer Activity
+
+Try9 removed the separate `produced_pair_buffer_active` flag. The reducer now
+derives produced-buffer service activity from the bounded produced-pair count:
+if `ProducedActivePairs::produced_pair_count` is nonzero, the reducer has
+pending commit-buffer work.
+
+This preserves the try8 architecture:
+
+- staged `CALL` remains a bounded multi-cycle service;
+- all produced active pairs still pass through the single-owner queue commit
+  service;
+- deferred completion accounting still increments `performed_steps` separately
+  from rule execution;
+- the produced-pair count and flush cursor remain 5-bit state.
+
+Try9 full-profile CSIM passed. The FPGA-small CSIM executable was blocked by
+Windows Application Control before test execution, so it is recorded as an
+external validation limitation rather than a reducer mismatch. FPGA-small
+synthesis completed:
+
+| Build | LUT | FF | DSP | Main loop II | Timing/slack | Main result |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| FPGA-small narrow buffer cursor try8 | 9626 | 4246 | 2 | 1 | `-1.21` | active-buffer flag still critical |
+| FPGA-small derived buffer activity try9 | 9615 | 4269 | 2 | 1 | `-1.21` | active-buffer flag removed from critical path |
+
+The resource change is nearly neutral: `-11 LUT`, `+23 FF`. The important
+evidence is the critical-path movement. Try8 reported:
+
+```text
+produced_pair_buffer_active phi -> targetBlock call
+```
+
+Try9 reports:
+
+```text
+pending_completion_active phi -> targetBlock call
+```
+
+This means the produced-buffer active flag was successfully removed as an
+independent scheduler limiter. The next limiter is the pending-completion
+service flag. For diploma analysis, try9 is useful because it narrows the
+remaining timing problem from "produced-buffer active fanout" to the more
+general reducer service-selection state.
+
+## Next Queue Architecture
+
+The next queue/control experiment should not reintroduce separate activity
+flags. A better direction is a compact service-phase encoding that represents
+pending completion, produced-pair flush, active staged `CALL`, and normal
+dispatch as mutually exclusive reducer services. That would test whether HLS
+can schedule one small phase field more cleanly than several independent active
+bits feeding the pipeline target block.

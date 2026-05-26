@@ -121,7 +121,6 @@ extern "C" void reducer_core(
 #if ENABLE_PRODUCED_PAIR_BUFFER
   ProducedActivePairs produced_active_pairs;
   initialize_produced_active_pairs(&produced_active_pairs);
-  ap_uint<1> produced_pair_buffer_active = 0;
   ProducedPairCount produced_pair_flush_index = 0;
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
   ap_uint<1> buffered_rule_is_call = 0;
@@ -144,7 +143,7 @@ extern "C" void reducer_core(
       call_state.active ||
 #endif
 #if ENABLE_PRODUCED_PAIR_BUFFER
-      produced_pair_buffer_active ||
+      !produced_active_pairs_are_empty(&produced_active_pairs) ||
 #endif
       (executed_steps < maximum_steps && !redex_queue_is_empty(redex_queue_count_value))) {
 #pragma HLS PIPELINE II=1
@@ -183,7 +182,7 @@ extern "C" void reducer_core(
     ap_uint<1> interaction_completed = 0;
 
 #if ENABLE_PRODUCED_PAIR_BUFFER
-    if (produced_pair_buffer_active) {
+    if (!produced_active_pairs_are_empty(&produced_active_pairs)) {
 #if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
       interaction_rule_kind = buffered_rule_kind;
 #endif
@@ -199,10 +198,9 @@ extern "C" void reducer_core(
             reducer_statistics,
             interaction_result,
             &local_status_code);
-        produced_pair_buffer_active = 0;
+        initialize_produced_active_pairs(&produced_active_pairs);
         break;
       } else if (produced_pair_flush_index >= produced_active_pairs.produced_pair_count) {
-        produced_pair_buffer_active = 0;
         initialize_produced_active_pairs(&produced_active_pairs);
 #if ENABLE_STAGED_CALL
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
@@ -249,7 +247,6 @@ extern "C" void reducer_core(
           &call_state);
       if (interaction_result.success &&
           !produced_active_pairs_are_empty(&produced_active_pairs)) {
-        produced_pair_buffer_active = 1;
         produced_pair_flush_index = 0;
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
         buffered_rule_is_call = 1;
@@ -329,7 +326,6 @@ extern "C" void reducer_core(
               right_port);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
@@ -361,7 +357,6 @@ extern "C" void reducer_core(
               right_port);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
@@ -390,7 +385,6 @@ extern "C" void reducer_core(
               right_port);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
@@ -423,7 +417,6 @@ extern "C" void reducer_core(
               right_port);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
@@ -460,7 +453,6 @@ extern "C" void reducer_core(
               reducer_statistics);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
@@ -497,7 +489,6 @@ extern "C" void reducer_core(
               &local_status_code);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
@@ -537,7 +528,6 @@ extern "C" void reducer_core(
               &call_state);
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
-            produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 1;
@@ -545,7 +535,8 @@ extern "C" void reducer_core(
             buffered_rule_kind = interaction_rule_kind;
 #endif
           }
-          interaction_completed = !call_state.active && !produced_pair_buffer_active;
+          interaction_completed =
+              !call_state.active && produced_active_pairs_are_empty(&produced_active_pairs);
 #else
           interaction_result = begin_staged_call(
               node_memory,

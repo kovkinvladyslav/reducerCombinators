@@ -138,6 +138,8 @@ The project currently provides:
 | `hls_config_synth_fpga_small_compact_completion.cfg` | FPGA-small synthesis probe with staged `CALL`, produced-pair buffer, deferred completion accounting, small-rule helper inlining, and compact no-statistics completion metadata enabled |
 | `hls_config_fpga_small_narrow_buffer_cursor.cfg` | FPGA-small CSIM config with staged `CALL`, produced-pair buffer, deferred completion accounting, compact completion metadata, and narrowed produced-buffer cursor enabled |
 | `hls_config_synth_fpga_small_narrow_buffer_cursor.cfg` | FPGA-small synthesis probe with staged `CALL`, produced-pair buffer, deferred completion accounting, compact completion metadata, and narrowed produced-buffer cursor enabled |
+| `hls_config_fpga_small_derived_buffer_activity.cfg` | FPGA-small CSIM config deriving produced-buffer activity from the narrow produced-pair count instead of a separate active flag |
+| `hls_config_synth_fpga_small_derived_buffer_activity.cfg` | FPGA-small synthesis probe deriving produced-buffer activity from the narrow produced-pair count instead of a separate active flag |
 | `hls_config_synth_structural_core.cfg` | Structural IC core synthesis probe: `LINK`, `VOID`, `ERASE`, `ANNIHILATE`, `COMMUTE` |
 
 The `nostats` synthesis configs disable `ENABLE_REDUCER_STATISTICS` and
@@ -187,6 +189,13 @@ top of try7. The produced-pair buffer has a fixed capacity of `17`, so its count
 and flush cursor use the narrow `ProducedPairCount` type instead of 32-bit
 counters. Try8 showed this preserves final loop `II=1` and reduces area to
 `9626 LUT` and `4246 FF`.
+
+The derived-buffer-activity configs are a service-state experiment on top of
+try8. They remove the separate `produced_pair_buffer_active` flag and derive
+buffer service activity from the nonzero produced-pair count. Try9 preserved
+final loop `II=1` and produced `9615 LUT`, `4269 FF`, and `2 DSP`. The critical
+path moved from `produced_pair_buffer_active` to `pending_completion_active`,
+showing that the next control target is the broader service-phase encoding.
 
 ## Suggested Diploma Wording
 
