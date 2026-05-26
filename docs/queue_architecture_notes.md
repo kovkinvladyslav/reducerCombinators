@@ -1738,3 +1738,62 @@ The next experiment should not keep deepening refill in this same form. It
 should either use a single `refill_target_lane` register with exactly one
 global-pop call site, or move global pop into a dedicated one-entry pop buffer
 before selected-command capture.
+
+## Try35 Single-Site Parallel Refill Pop
+
+Try35 implements the first try34 recommendation under:
+
+```text
+ENABLE_PARALLEL_SINGLE_REFILL_POP
+```
+
+It keeps `ENABLE_PARALLEL_SPLIT_REFILL`, but changes REFILL_POP from two
+priority-coded global pop call sites to:
+
+```text
+REFILL: choose refill_target_lane
+REFILL_POP: call active_pair_queue_pop_global exactly once
+REFILL_POP: route the popped pair to refill_target_lane
+```
+
+This distinction matters for HLS. Try34 was architecturally single-owner in
+intent, but its C structure still showed HLS two queue-pop sites. Try35 exposes
+one global pop datapath.
+
+Full-profile CSIM and FPGA-small CSIM passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try32 split `LINK` writeback | 4594 | 2669 | 0 | 0 | 1 | `-3.19` | `95.28 MHz` |
+| Try33 pending status | 4772 | 2282 | 0 | 0 | 1 | `-3.16` | `95.58 MHz` |
+| Try34 split refill pop | 4680 | 2118 | 0 | 0 | 1 | `-4.11` | `87.67 MHz` |
+| Try35 single-site refill pop | 4003 | 2114 | 0 | 0 | 1 | `-2.05` | `107.01 MHz` |
+
+This is not a final timing-clean endpoint, but it is the best focused parallel
+scheduler result so far. The design-size report confirms the intended
+structural change: `active_pair_queue_pop_global` drops from try34's two-call
+`904` instruction contribution to one `452` instruction contribution. The
+critical path also moves away from global queue pop/count and into
+`executed_steps` completion accounting.
+
+For diploma wording:
+
+```text
+Try35 demonstrates that the source-level shape of a service boundary matters
+for HLS. A conceptual "single refill service" still synthesized poorly when
+written as two priority-coded pop sites. Capturing the target lane first and
+calling the global queue pop exactly once reduced area and improved timing,
+moving the limiter from queue ownership to completion accounting.
+```
+
+The next experiment should preserve try35 as the base and split selected-command
+success completion:
+
+```text
+execute selected command
+commit produced pair
+complete selected command and increment executed_steps
+```
+
+The goal is to remove `executed_steps` update from the same broad control path
+that checks the loop condition and selects service status.

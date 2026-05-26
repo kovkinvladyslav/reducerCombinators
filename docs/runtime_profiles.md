@@ -313,3 +313,17 @@ This is a negative timing result: refill splitting reduced FF usage but
 worsened timing versus try32 and try33. The evidence suggests the next queue
 experiment must make the global pop datapath a true single syntactic service
 instead of priority-coding two pop call sites.
+
+Try35 adds the follow-up focused profile:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_staged_link_split_classify_split_writeback_split_refill_singlepop_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_SINGLE_REFILL_POP` on top of the try34 refill
+split. The profile captures one `refill_target_lane`, performs exactly one
+global queue pop in REFILL_POP, then routes the result to the selected lane.
+Focused CSYNTH completed at `4003 LUT`, `2114 FF`, `0 DSP`, `0 BRAM`,
+scheduler `II=1`, and `-2.05` slack. It is still not timing-clean, but it is
+the best focused parallel scheduler evidence so far and shows that HLS-visible
+single-owner queue services matter.

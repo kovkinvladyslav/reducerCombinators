@@ -793,8 +793,13 @@ extern "C" void reducer_core_parallel(
   ap_uint<32> local_status_code = REDUCER_STATUS_SUCCESS;
 #if ENABLE_PARALLEL_SERVICE_PHASE
   ReducerServicePhase parallel_service_phase = PARALLEL_SERVICE_REFILL;
-#if ENABLE_PARALLEL_SPLIT_REFILL
+#if ENABLE_PARALLEL_SPLIT_REFILL && !ENABLE_PARALLEL_SINGLE_REFILL_POP
   ap_uint<1> refill_lane_needs_work[REDUCER_LANE_COUNT];
+#endif
+#if ENABLE_PARALLEL_SPLIT_REFILL
+#if ENABLE_PARALLEL_SINGLE_REFILL_POP
+  ap_uint<1> refill_target_lane = 0;
+#endif
 #endif
 #if ENABLE_PARALLEL_PENDING_STATUS
   ap_uint<1> pending_status_valid = 0;
@@ -857,7 +862,7 @@ extern "C" void reducer_core_parallel(
 #pragma HLS ARRAY_PARTITION variable=phased_lane_should_commit complete dim=1
 #pragma HLS ARRAY_PARTITION variable=phased_produced_active_pairs complete dim=1
 #pragma HLS ARRAY_PARTITION variable=phased_produced_pair_index complete dim=1
-#if ENABLE_PARALLEL_SPLIT_REFILL
+#if ENABLE_PARALLEL_SPLIT_REFILL && !ENABLE_PARALLEL_SINGLE_REFILL_POP
 #pragma HLS ARRAY_PARTITION variable=refill_lane_needs_work complete dim=1
 #endif
 #if ENABLE_PARALLEL_SELECTED_COMMAND
@@ -879,7 +884,7 @@ extern "C" void reducer_core_parallel(
     phased_candidate_rule_kinds[lane_index] = INTERACTION_RULE_UNSUPPORTED;
     phased_lane_should_commit[lane_index] = 0;
     phased_produced_pair_index[lane_index] = 0;
-#if ENABLE_PARALLEL_SPLIT_REFILL
+#if ENABLE_PARALLEL_SPLIT_REFILL && !ENABLE_PARALLEL_SINGLE_REFILL_POP
     refill_lane_needs_work[lane_index] = 0;
 #endif
     initialize_produced_active_pairs(&phased_produced_active_pairs[lane_index]);
@@ -963,6 +968,23 @@ extern "C" void reducer_core_parallel(
 #else
     if (parallel_service_phase == PARALLEL_SERVICE_REFILL) {
 #if ENABLE_PARALLEL_SPLIT_REFILL
+#if ENABLE_PARALLEL_SINGLE_REFILL_POP
+      ap_uint<1> lane0_empty = active_pair_queue_is_local_empty(&reducer_lanes[0]);
+      ap_uint<1> lane1_empty = active_pair_queue_is_local_empty(&reducer_lanes[1]);
+      ap_uint<1> any_local_work_available = !lane0_empty || !lane1_empty;
+      ap_uint<1> any_lane_needs_refill = lane0_empty || lane1_empty;
+      refill_target_lane = lane0_empty ? (ap_uint<1>)0 : (ap_uint<1>)1;
+
+      if (redex_queue_is_empty(global_queue_count_value) && !any_local_work_available) {
+        break;
+      }
+
+      if (any_lane_needs_refill && !redex_queue_is_empty(global_queue_count_value)) {
+        parallel_service_phase = PARALLEL_SERVICE_REFILL_POP;
+      } else {
+        parallel_service_phase = PARALLEL_SERVICE_SELECT;
+      }
+#else
       ap_uint<1> any_local_work_available = 0;
       ap_uint<1> any_lane_needs_refill = 0;
       for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
@@ -982,6 +1004,7 @@ extern "C" void reducer_core_parallel(
       } else {
         parallel_service_phase = PARALLEL_SERVICE_SELECT;
       }
+#endif
 #else
       ap_uint<1> any_local_work_available = 0;
       for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
@@ -1012,6 +1035,24 @@ extern "C" void reducer_core_parallel(
 #endif
     } else if (parallel_service_phase == PARALLEL_SERVICE_REFILL_POP) {
 #if ENABLE_PARALLEL_SPLIT_REFILL
+#if ENABLE_PARALLEL_SINGLE_REFILL_POP
+      RedexPair refilled_active_pair;
+      if (active_pair_queue_pop_global(
+              global_active_pair_memory,
+              &global_queue_head_index,
+              &global_queue_count_value,
+              &refilled_active_pair)) {
+        if (refill_target_lane == 0) {
+          active_pair_queue_push_local(&reducer_lanes[0], refilled_active_pair);
+        } else {
+          active_pair_queue_push_local(&reducer_lanes[1], refilled_active_pair);
+        }
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+        reducer_statistics->global_refill_count = reducer_statistics->global_refill_count + 1;
+#endif
+      }
+      parallel_service_phase = PARALLEL_SERVICE_REFILL;
+#else
       RedexPair refilled_active_pair;
       ap_uint<1> popped = 0;
       if (refill_lane_needs_work[0] &&
@@ -1045,6 +1086,7 @@ extern "C" void reducer_core_parallel(
       } else {
         parallel_service_phase = PARALLEL_SERVICE_SELECT;
       }
+#endif
 #else
       parallel_service_phase = PARALLEL_SERVICE_SELECT;
 #endif
