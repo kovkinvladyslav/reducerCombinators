@@ -435,3 +435,21 @@ This is a negative but useful profile result. The direct non-link output path
 does not improve timing or resources, which means the generic two-append logic
 is no longer the limiting structure. The next profile should target staged
 non-link validation/status control rather than produced-pair slot writes.
+
+Try43 adds staged non-link validation on top of try41:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_staged_link_split_classify_split_writeback_split_refill_singlepop_compact_produced_direct_link_decide_write_split_staged_nonlink_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION`, which uses a second
+`CLASSIFY` service tick to validate selected `ERASE`/`ANNIHILATE` ports and
+capture produced-pair outputs before the later execute tick emits them. Full
+CSIM and FPGA-small CSIM passed. Focused CSYNTH completed at `3754 LUT`,
+`1288 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and `-4.92` slack with
+estimated Fmax `81.81 MHz`.
+
+This is worse than try41/try42. The result shows that staging through the
+existing classify controller increases rule-decode/service-phase fan-in. Future
+profiles should return to try41 and reduce selected-command classification
+control directly instead of adding more work to `PARALLEL_SERVICE_CLASSIFY`.

@@ -2143,3 +2143,59 @@ The next experiment should therefore avoid another append specialization.
 Instead, it should stage selected non-link node validation and node-data capture
 before produced-pair emission, separating `ERASE`/`ANNIHILATE` validity checks
 from the `local_status_code` update.
+
+## Try43 Staged Non-Link Validation
+
+Try43 implements that staged non-link validation idea under:
+
+```text
+ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION
+```
+
+The design preserves try41's staged `LINK` decide/write split. For selected
+`ERASE`/`ANNIHILATE`, it reuses the existing `PARALLEL_SERVICE_CLASSIFY`
+service for a second tick:
+
+```text
+CLASSIFY rule kind
+CLASSIFY validate non-link node ports and capture two produced pairs
+EXECUTE emit captured produced pairs and count the rule
+COMMIT push produced pairs
+```
+
+The choice deliberately avoids widening `ReducerServicePhase`, but it adds
+validation-pending and validated state for the selected command.
+
+Full-profile CSIM and FPGA-small CSIM both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try41 staged `LINK` decide/write split | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+| Try42 direct non-link outputs | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+| Try43 staged non-link validation | 3754 | 1288 | 0 | 0 | 1 | `-4.92` | `81.81 MHz` |
+
+This is a negative result. The staged non-link idea is semantically valid and
+keeps `II=1`, but reusing `CLASSIFY` creates a worse control path. Vitis
+reports the new critical path through:
+
+```text
+selected_command_produced_active_pairs.produced_pairs.right_port
+get_interaction_rule_kind
+selected_command_rule_kind sparse mux
+parallel_service_phase select/store
+```
+
+For diploma wording:
+
+```text
+Try43 shows that adding a service tick is only useful when the new service has
+a smaller control cone. Reusing the classify controller for staged non-link
+validation moved the bottleneck from node validation into rule-decode and
+service-phase selection, reducing Fmax from 118.28 MHz to 81.81 MHz.
+```
+
+The next experiment should return to try41 and reduce selected-command
+classification fan-in directly. One candidate is a compact selected-command
+class field computed during SELECT, so EXECUTE routes on a few one-bit class
+flags rather than repeatedly carrying the full interaction-rule decode through
+the service controller.
