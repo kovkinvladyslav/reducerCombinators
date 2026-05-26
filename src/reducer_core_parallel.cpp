@@ -1710,7 +1710,11 @@ extern "C" void reducer_core_parallel(
 #if ENABLE_PARALLEL_SPLIT_LINK_WRITEBACK
             selected_command_link_emit_pair = 0;
 #endif
+#if ENABLE_PARALLEL_LINK_IMPLICIT_SUCCESS && ENABLE_PARALLEL_DIRECT_LINK_APPEND && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER && ENABLE_PARALLEL_SPLIT_LINK_WRITEBACK
+            if (1) {
+#else
             if (local_status_code == REDUCER_STATUS_SUCCESS) {
+#endif
 #if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
               selected_command_completion_valid = 1;
               selected_command_completion_lane_index = selected_command_lane_index;

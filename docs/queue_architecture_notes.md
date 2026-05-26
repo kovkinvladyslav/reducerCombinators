@@ -1997,3 +1997,49 @@ The next experiment should return to try38 and remove successful selected
 `LINK` execution from the `local_status_code` mux, for example by making success
 the implicit fall-through path and routing only error cases through an explicit
 error-valid/status register.
+
+## Try40 Direct Staged LINK Implicit Success
+
+Try40 tests the narrowest version of that idea under:
+
+```text
+ENABLE_PARALLEL_LINK_IMPLICIT_SUCCESS
+```
+
+It returns to the try38 base and does not enable the try39 read-decode bit. In
+the focused compact/direct `LINK` profile, the append-result tick cannot
+overflow because the selected-command staged `LINK` writes produced-pair slot
+`0` directly. Try40 therefore treats completion as an implicit success in that
+specific gated path, instead of checking `local_status_code == SUCCESS` before
+counting the completed `LINK`.
+
+Full-profile CSIM and FPGA-small CSIM both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try38 direct staged `LINK` append | 3749 | 1148 | 0 | 0 | 1 | `-1.97` | `107.85 MHz` |
+| Try40 direct staged `LINK` implicit success | 3749 | 1148 | 0 | 0 | 1 | `-1.97` | `107.85 MHz` |
+
+This is a neutral negative result. HLS produced the same focused resource and
+timing point as try38. The critical path still reports:
+
+```text
+substitution_memory_0_load
+selected_command_link_previous_port
+unbound-marker comparison
+local_status_code phi/store
+```
+
+For diploma wording:
+
+```text
+Try40 shows that the visible status/control bottleneck is not caused by the
+final success guard after staged LINK completion. Removing that guard in the
+direct compact profile synthesizes to the same hardware point as try38. The
+remaining issue is the writeback tick itself: substitution-memory read,
+unbound-marker decision, substitution writeback, and scheduler status/control
+still share one pipelined service region.
+```
+
+The next experiment should split the staged `LINK` writeback tick rather than
+adjust completion guards.

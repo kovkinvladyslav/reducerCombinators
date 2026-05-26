@@ -389,3 +389,16 @@ at `3751 LUT`, `1149 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and about
 register in the critical path, so the next focused profile should return to
 try38 and decouple successful staged `LINK` service from `local_status_code`
 selection rather than caching the unbound comparison.
+
+Try40 adds a direct staged `LINK` implicit-success probe on top of try38:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_staged_link_split_classify_split_writeback_split_refill_singlepop_compact_produced_direct_link_implicit_success_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_LINK_IMPLICIT_SUCCESS`, which removes the final
+success-status guard only for the compact direct staged `LINK` completion path.
+Focused CSYNTH completed at `3749 LUT`, `1148 FF`, `0 DSP`, `0 BRAM`,
+scheduler `II=1`, and `-1.97` slack, matching try38. The result shows that the
+completion guard is not the useful lever; the next profile should split staged
+`LINK` writeback itself.
