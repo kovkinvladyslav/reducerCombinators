@@ -2677,3 +2677,68 @@ loop. A real scheduler protocol boundary is needed: either a multi-cycle
 selected-rule service with request/response registers, or separate HLS
 functions connected by small command records so classify, execute, and commit
 are not merged into one loop-carried status path.
+
+## Try53 ERASE-Only Request/Response Service
+
+Try53 narrows the service-boundary idea from try46/try52 to selected `ERASE`
+only:
+
+```text
+ENABLE_PARALLEL_SELECTED_ERASE_SERVICE
+```
+
+The selected `ERASE` path uses explicit scheduler phases instead of a noinline
+helper call:
+
+```text
+EXECUTE request -> SELECTED_ERASE_READ -> SELECTED_ERASE_EMIT -> COMMIT
+```
+
+The request tick pops the selected local active pair and captures the erasure
+port plus node address. The read tick validates the node address and reads node
+memory. The emit tick writes the two produced pairs and then enters the normal
+selected-command completion/commit flow.
+
+Full-profile CSIM and FPGA-small CSIM passed on rerun. The first CSIM attempts
+for both profiles hit the recurring Vitis launcher error:
+
+```text
+couldn't execute ".\csim.exe": invalid argument
+```
+
+Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try49 direct selected `ERASE` | 3661 | 1165 | 0 | 0 | 1 | `~ -1.16` | `118.28 MHz` |
+| Try52 outlined selected `ERASE` helper | 3821 | 1555 | 0 | 0 | 3 | `~ -0.295` | `131.66 MHz` |
+| Try53 ERASE-only service | 3549 | 1260 | 0 | 0 | 1 | `~ -1.307` | `116.18 MHz` |
+
+This is useful rejected evidence. Compared with try52, explicit service
+registers avoid the function-call scheduling dependency and restore `II=1`.
+Compared with try49, the new protocol reduces LUT, but increases FF and slightly
+worsens timing.
+
+The critical path is no longer primarily the selected `ERASE` datapath. HLS
+reports it through loop continuation and the shared status phi:
+
+```text
+while.cond
+executed_steps / maximum_steps loop condition
+local_status_code phi/mux
+local_status_code_write_ln1060
+```
+
+For diploma wording:
+
+```text
+Try53 separates selected ERASE into request/read/emit service ticks and proves
+that a protocol boundary is superior to a noinline helper for maintaining
+II=1. The remaining timing problem is global: the scheduler-wide status and
+loop-continuation mux now dominates the critical path. This shifts the next
+architecture question from rule-local datapaths to global control/status
+organization.
+```
+
+The next experiment should target the global `local_status_code` and loop
+condition path directly, rather than adding more selected-rule staging.

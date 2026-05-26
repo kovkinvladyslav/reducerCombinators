@@ -1106,6 +1106,13 @@ extern "C" void reducer_core_parallel(
   Port selected_erase_pair1_left = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
   Port selected_erase_pair1_right = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
 #endif
+#if ENABLE_PARALLEL_SELECTED_ERASE_SERVICE && ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+  ap_uint<1> selected_erase_service_active = 0;
+  Port selected_erase_service_erasure_port = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+  NodeAddress selected_erase_service_node_address = 0;
+  Port selected_erase_service_aux0 = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+  Port selected_erase_service_aux1 = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+#endif
 #if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
   ap_uint<1> selected_command_completion_valid = 0;
   ap_uint<1> selected_command_completion_lane_index = 0;
@@ -1198,6 +1205,10 @@ extern "C" void reducer_core_parallel(
        parallel_service_phase == PARALLEL_SERVICE_COMMIT
 #if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
        || parallel_service_phase == PARALLEL_SERVICE_COMPLETE_SELECTED
+#endif
+#if ENABLE_PARALLEL_SELECTED_ERASE_SERVICE
+       || parallel_service_phase == PARALLEL_SERVICE_SELECTED_ERASE_READ
+       || parallel_service_phase == PARALLEL_SERVICE_SELECTED_ERASE_EMIT
 #endif
 #if ENABLE_PARALLEL_PENDING_STATUS
        || parallel_service_phase == PARALLEL_SERVICE_STATUS
@@ -1561,6 +1572,9 @@ extern "C" void reducer_core_parallel(
 #endif
 #if ENABLE_PARALLEL_PREVALIDATED_SELECTED_ERASE && ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
       selected_erase_prevalidated = 0;
+#endif
+#if ENABLE_PARALLEL_SELECTED_ERASE_SERVICE && ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+      selected_erase_service_active = 0;
 #endif
 #if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
       selected_command_completion_valid = 0;
@@ -1956,6 +1970,60 @@ extern "C" void reducer_core_parallel(
       parallel_service_phase = PARALLEL_SERVICE_REFILL;
 #else
       parallel_service_phase = PARALLEL_SERVICE_REFILL;
+#endif
+#if ENABLE_PARALLEL_SELECTED_ERASE_SERVICE && ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+    } else if (parallel_service_phase == PARALLEL_SERVICE_SELECTED_ERASE_READ) {
+      if (selected_erase_service_active &&
+          local_status_code == REDUCER_STATUS_SUCCESS) {
+        if (selected_erase_service_node_address >= MAXIMUM_NODE_COUNT) {
+          InteractionResult unsupported_result = make_interaction_result(0);
+          unsupported_result.unsupported_interaction = 1;
+          record_parallel_error_status(
+              reducer_statistics,
+              unsupported_result,
+              &local_status_code);
+          selected_erase_service_active = 0;
+          parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+        } else {
+          PackedNode node_data = node_memory[selected_erase_service_node_address];
+          selected_erase_service_aux0 = get_first_auxiliary_port(node_data);
+          selected_erase_service_aux1 = get_second_auxiliary_port(node_data);
+          parallel_service_phase = PARALLEL_SERVICE_SELECTED_ERASE_EMIT;
+        }
+      } else {
+        selected_erase_service_active = 0;
+        parallel_service_phase = PARALLEL_SERVICE_REFILL;
+      }
+    } else if (parallel_service_phase == PARALLEL_SERVICE_SELECTED_ERASE_EMIT) {
+      if (selected_erase_service_active &&
+          local_status_code == REDUCER_STATUS_SUCCESS) {
+        initialize_produced_active_pairs(&selected_command_produced_active_pairs);
+        selected_command_produced_active_pairs.produced_pairs[0].left_port =
+            selected_erase_service_erasure_port;
+        selected_command_produced_active_pairs.produced_pairs[0].right_port =
+            selected_erase_service_aux0;
+        selected_command_produced_active_pairs.produced_pairs[1].left_port =
+            selected_erase_service_erasure_port;
+        selected_command_produced_active_pairs.produced_pairs[1].right_port =
+            selected_erase_service_aux1;
+        selected_command_produced_active_pairs.produced_pair_count = 2;
+        selected_erase_service_active = 0;
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+        selected_command_completion_valid = 1;
+        selected_command_completion_lane_index = selected_command_lane_index;
+        selected_command_completion_rule_kind = INTERACTION_RULE_ERASE;
+        parallel_service_phase = PARALLEL_SERVICE_COMPLETE_SELECTED;
+#else
+        executed_steps = executed_steps + 1;
+        increment_lane_committed_step_counter(
+            reducer_statistics,
+            selected_command_lane_index);
+        parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
+      } else {
+        selected_erase_service_active = 0;
+        parallel_service_phase = PARALLEL_SERVICE_REFILL;
+      }
 #endif
     } else if (parallel_service_phase == PARALLEL_SERVICE_COMPLETE_SELECTED) {
 #if ENABLE_PARALLEL_SELECTED_COMMAND && ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
@@ -2368,6 +2436,24 @@ extern "C" void reducer_core_parallel(
                    selected_command_class == SELECTED_CLASS_ANNIHILATE) {
 #if ENABLE_PARALLEL_DIRECT_SELECTED_ERASE && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
           if (selected_command_class == SELECTED_CLASS_ERASE) {
+#if ENABLE_PARALLEL_SELECTED_ERASE_SERVICE && ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
+            RedexPair discarded_active_pair;
+            active_pair_queue_pop_local(
+                &reducer_lanes[selected_command_lane_index],
+                &discarded_active_pair);
+
+            Port erasure_port = selected_command_active_pair.left_port;
+            Port node_port = selected_command_active_pair.right_port;
+            if (!is_erasure_port(erasure_port)) {
+              erasure_port = selected_command_active_pair.right_port;
+              node_port = selected_command_active_pair.left_port;
+            }
+
+            selected_erase_service_erasure_port = erasure_port;
+            selected_erase_service_node_address = get_port_value(node_port);
+            selected_erase_service_active = 1;
+            lane_committed = 0;
+#else
 #if ENABLE_PARALLEL_PREVALIDATED_SELECTED_ERASE && ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
             if (selected_erase_prevalidated) {
               lane_committed = execute_selected_erase_prevalidated(
@@ -2394,6 +2480,7 @@ extern "C" void reducer_core_parallel(
                 &direct_erase_pending_status_code,
 #endif
                 &local_status_code);
+#endif
 #endif
           } else {
 #endif
@@ -2477,6 +2564,21 @@ extern "C" void reducer_core_parallel(
           increment_lane_committed_step_counter(reducer_statistics, selected_command_lane_index);
 #endif
         }
+#if ENABLE_PARALLEL_SELECTED_ERASE_SERVICE && ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+        if (selected_erase_service_active) {
+          parallel_service_phase = PARALLEL_SERVICE_SELECTED_ERASE_READ;
+        } else {
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+          if (selected_command_completion_valid) {
+            parallel_service_phase = PARALLEL_SERVICE_COMPLETE_SELECTED;
+          } else {
+            parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+          }
+#else
+          parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
+        }
+#else
 #if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
         if (selected_command_completion_valid) {
           parallel_service_phase = PARALLEL_SERVICE_COMPLETE_SELECTED;
@@ -2485,6 +2587,7 @@ extern "C" void reducer_core_parallel(
         }
 #else
         parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
 #endif
 #if ENABLE_PARALLEL_STAGED_LINK && ENABLE_RULE_LINK
         }

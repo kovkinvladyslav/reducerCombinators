@@ -634,3 +634,28 @@ dependence around the helper call and a limited-resource call scheduling issue.
 Future profiles should use an explicit request/response service phase or a
 larger scheduler function split instead of placing noinline calls directly in
 the pipelined scheduler loop.
+
+Try53 implements the explicit request/response direction for selected `ERASE`
+only:
+
+```text
+hls_config_try53_selected_erase_service_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_SELECTED_ERASE_SERVICE` on top of the try49
+true-class selected-command base. The path is:
+
+```text
+EXECUTE request -> SELECTED_ERASE_READ -> SELECTED_ERASE_EMIT -> COMMIT
+```
+
+Full CSIM and FPGA-small CSIM passed after rerunning around the recurring Vitis
+`csim.exe: invalid argument` launcher issue. Focused CSYNTH completed at
+`3549 LUT`, `1260 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and about
+`-1.307 ns` slack with estimated Fmax `116.18 MHz`.
+
+This is a useful rejected profile. It improves LUT and restores `II=1` versus
+try52, but does not improve timing versus try49. The critical path now runs
+through `while.cond`, the executed-step loop condition, and the shared
+`local_status_code` phi. Future profiles should focus on separating hot success
+control from global error/status reporting.
