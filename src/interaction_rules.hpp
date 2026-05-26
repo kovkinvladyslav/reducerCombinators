@@ -314,6 +314,9 @@ static inline InteractionResult apply_link_rule_buffered(
     ProducedActivePairs* produced_active_pairs,
     Port left_port,
     Port right_port) {
+#if ENABLE_INLINE_SMALL_RULE_HELPERS
+#pragma HLS INLINE
+#endif
   InteractionResult result = make_interaction_result(1);
   Port variable_port = left_port;
   Port other_port = right_port;
@@ -396,6 +399,9 @@ static inline InteractionResult apply_erase_rule_buffered(
     ProducedActivePairs* produced_active_pairs,
     Port left_port,
     Port right_port) {
+#if ENABLE_INLINE_SMALL_RULE_HELPERS
+#pragma HLS INLINE
+#endif
   InteractionResult result = make_interaction_result(1);
   Port erasure_port = left_port;
   Port node_port = right_port;
@@ -467,6 +473,9 @@ static inline InteractionResult apply_annihilate_rule_buffered(
     ProducedActivePairs* produced_active_pairs,
     Port left_port,
     Port right_port) {
+#if ENABLE_INLINE_SMALL_RULE_HELPERS
+#pragma HLS INLINE
+#endif
   InteractionResult result = make_interaction_result(1);
   NodeAddress left_node_address = get_port_value(left_port);
   NodeAddress right_node_address = get_port_value(right_port);

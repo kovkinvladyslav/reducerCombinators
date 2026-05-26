@@ -204,3 +204,37 @@ the extra LUT/FF cost. A focused experiment is selective helper partitioning:
 keep expensive rules such as `CALL`, `OPERATE`, `SWITCH`, and `COMMUTE` as
 separate staged/service modules, while allowing tiny rules such as `VOID`,
 `LINK`, `ERASE`, and `ANNIHILATE` to inline or share a smaller local datapath.
+
+## Try6 Selective Small-Rule Inlining
+
+Try6 kept try5's deferred completion boundary and tested only helper granularity.
+Under `ENABLE_INLINE_SMALL_RULE_HELPERS`, the tiny buffered helpers for `LINK`,
+`ERASE`, and `ANNIHILATE` are forced inline. Larger helpers remain as separate
+service modules.
+
+Try6 passed full-profile CSIM and FPGA-small CSIM. FPGA-small synthesis also
+completed:
+
+| Build | LUT | FF | DSP | Main loop II | Timing/slack | Main result |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| FPGA-small deferred completion try5 | 10591 | 4425 | 2 | 1 | `-1.21` | scheduler-clean baseline |
+| FPGA-small inline small helpers try6 | 10292 | 4385 | 2 | 1 | `-1.21` | modest area recovery |
+
+The small rule helpers no longer appear as separate modules in the synthesis
+summary, while larger services such as staged `CALL`, `OPERATE`, `SWITCH`, and
+`COMMUTE` remain separate. This confirms that the experiment changed helper
+partitioning without changing interaction semantics.
+
+The result is positive but limited: `299 LUT` and `40 FF` were recovered while
+preserving final `II=1`, but timing did not improve. For the diploma, try6
+shows that module granularity matters after the scheduler boundary is fixed, but
+the main remaining cost is broader reducer state/control rather than tiny-rule
+helper overhead.
+
+## Next Queue Architecture
+
+The next area-focused try should keep try6 as the baseline and reduce the width
+or fanout of pending runtime state. Good candidates are the produced-pair buffer
+state, deferred completion state, and status/result muxing around staged
+services. The goal should be to preserve try5/try6's `II=1` while reducing LUT
+pressure more substantially than small-helper inlining.
