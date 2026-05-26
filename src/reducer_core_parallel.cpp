@@ -1125,16 +1125,22 @@ extern "C" void reducer_core_parallel(
           selected_command_valid = 1;
           selected_command_lane_index = lane_index;
           selected_command_active_pair = candidate_active_pair;
+#if !ENABLE_PARALLEL_SPLIT_SELECTED_CLASSIFY
           selected_command_rule_kind = get_interaction_rule_kind(
               candidate_active_pair.left_port,
               candidate_active_pair.right_port);
+#endif
         } else if (lane_has_candidate && executed_steps < maximum_steps) {
           increment_lane_stall_counter(reducer_statistics, lane_index);
         }
       }
 
       if (selected_command_valid) {
+#if ENABLE_PARALLEL_SPLIT_SELECTED_CLASSIFY
+        parallel_service_phase = PARALLEL_SERVICE_CLASSIFY;
+#else
         parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+#endif
       } else {
         parallel_service_phase = PARALLEL_SERVICE_REFILL;
       }
@@ -1242,6 +1248,19 @@ extern "C" void reducer_core_parallel(
       } else {
         parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
       }
+#endif
+    } else if (parallel_service_phase == PARALLEL_SERVICE_CLASSIFY) {
+#if ENABLE_PARALLEL_SELECTED_COMMAND && ENABLE_PARALLEL_SPLIT_SELECTED_CLASSIFY
+      if (selected_command_valid && local_status_code == REDUCER_STATUS_SUCCESS) {
+        selected_command_rule_kind = get_interaction_rule_kind(
+            selected_command_active_pair.left_port,
+            selected_command_active_pair.right_port);
+        parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+      } else {
+        parallel_service_phase = PARALLEL_SERVICE_REFILL;
+      }
+#else
+      parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
 #endif
     } else if (parallel_service_phase == PARALLEL_SERVICE_EXECUTE) {
 #if ENABLE_PARALLEL_WAITING_COMMAND

@@ -9,7 +9,7 @@ using PortValue = ap_uint<PORT_VALUE_BIT_COUNT>;
 using PackedNode = ap_uint<NODE_WIDTH>;
 using NodeAddress = ap_uint<PORT_VALUE_BIT_COUNT>;
 using ProducedPairCount = ap_uint<PRODUCED_PAIR_COUNTER_BIT_COUNT>;
-using ReducerServicePhase = ap_uint<2>;
+using ReducerServicePhase = ap_uint<3>;
 using LaneLocalQueueIndex = ap_uint<LANE_LOCAL_QUEUE_INDEX_BIT_COUNT>;
 using LaneLocalQueueCount = ap_uint<LANE_LOCAL_QUEUE_COUNT_BIT_COUNT>;
 

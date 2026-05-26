@@ -1501,3 +1501,64 @@ commit produced pair
 
 This tests whether the `II=1` gain from staged `LINK` can be kept while
 recovering timing from the selected-command classification path.
+
+## Try31 Split Selected-Command Classification
+
+Try31 implements the selected-command split recommended by try30 under:
+
+```text
+ENABLE_PARALLEL_SPLIT_SELECTED_CLASSIFY
+```
+
+The gate is default-off. In the focused structural profile, SELECT no longer
+both captures a lane candidate and classifies its interaction rule. Instead, the
+service sequence is:
+
+```text
+refill
+capture selected active pair
+classify selected rule
+execute or advance staged LINK
+commit produced pair
+```
+
+This required widening `ReducerServicePhase` from two bits to three bits,
+because the new `PARALLEL_SERVICE_CLASSIFY` phase has value `4`. That change is
+small but important: an undersized HLS state variable would truncate the phase
+value and make the service FSM incorrect in hardware.
+
+Full-profile CSIM and FPGA-small CSIM both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try30 selected command with staged `LINK` | 4770 | 2677 | 0 | 0 | 1 | `-7.29` | `68.57 MHz` |
+| Try31 split classify | 4602 | 2667 | 0 | 0 | 1 | `-4.35` | `85.82 MHz` |
+
+The result is a useful partial improvement. The classification split reduces
+LUTs slightly and improves timing, so try30's SELECT/classification/control path
+really was part of the limiter. However, the design is still not acceptable.
+After the classification path is shortened, the reported critical path returns
+to the staged `LINK` result/writeback region: Vitis reports a path from
+`substitution_memory_0_load` through the produced-pair left-port store,
+`local_status_code`, and `executed_steps`.
+
+For diploma wording:
+
+```text
+Try31 shows that service boundaries must be placed around both scheduling and
+rule writeback. Splitting active-pair capture from classification improves the
+timing failure from try30 while preserving II=1, but the remaining critical path
+is now the final LINK result tick, where substitution-memory data, produced-pair
+append, status selection, and completion accounting still meet in one cycle.
+```
+
+The next experiment should preserve the try31 capture/classify split and staged
+`LINK`, but split the final `LINK` write/result tick into two service ticks:
+
+```text
+write or clear substitution binding
+append produced pair and update completion/status
+```
+
+That would directly target the current reported path instead of adding more
+queue-selection or command-buffer state.
