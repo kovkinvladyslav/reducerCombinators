@@ -91,6 +91,11 @@ static inline void initialize_produced_active_pairs(ProducedActivePairs* produce
   produced_active_pairs->produced_pair_count = 0;
 }
 
+static inline ap_uint<1> produced_active_pairs_are_empty(
+    ProducedActivePairs* produced_active_pairs) {
+  return produced_active_pairs->produced_pair_count == 0;
+}
+
 static inline ap_uint<1> append_produced_active_pair(
     ProducedActivePairs* produced_active_pairs,
     Port left_port,
@@ -103,6 +108,30 @@ static inline ap_uint<1> append_produced_active_pair(
   produced_active_pairs->produced_pairs[produced_pair_index].left_port = left_port;
   produced_active_pairs->produced_pairs[produced_pair_index].right_port = right_port;
   produced_active_pairs->produced_pair_count = produced_active_pairs->produced_pair_count + 1;
+  return 1;
+}
+
+static inline ap_uint<1> flush_one_produced_active_pair(
+    ProducedActivePairs* produced_active_pairs,
+    ap_uint<32>* produced_pair_flush_index,
+    RedexPair global_active_pair_memory[MAXIMUM_REDEX_COUNT],
+    ap_uint<32>* global_queue_tail_index,
+    ap_uint<32>* global_queue_count_value) {
+  if (*produced_pair_flush_index >= produced_active_pairs->produced_pair_count) {
+    return 1;
+  }
+
+  RedexPair active_pair_to_flush =
+      produced_active_pairs->produced_pairs[*produced_pair_flush_index];
+  if (!active_pair_queue_push_global(
+          global_active_pair_memory,
+          global_queue_tail_index,
+          global_queue_count_value,
+          active_pair_to_flush)) {
+    return 0;
+  }
+
+  *produced_pair_flush_index = *produced_pair_flush_index + 1;
   return 1;
 }
 

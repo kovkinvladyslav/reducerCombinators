@@ -2,6 +2,7 @@
 #define INTERACTION_RULES_HPP
 
 #include "book_storage.hpp"
+#include "active_pair_queue.hpp"
 #include "numeric_encoding.hpp"
 #include "node_storage.hpp"
 #include "redex_queue.hpp"
@@ -301,6 +302,50 @@ static inline InteractionResult apply_link_rule(
   return result;
 }
 
+static inline InteractionResult apply_link_rule_buffered(
+    Port substitution_memory[MAXIMUM_VARIABLE_COUNT],
+    ProducedActivePairs* produced_active_pairs,
+    Port left_port,
+    Port right_port) {
+  InteractionResult result = make_interaction_result(1);
+  Port variable_port = left_port;
+  Port other_port = right_port;
+
+  if (!is_variable_port(variable_port) && is_variable_port(other_port)) {
+    variable_port = right_port;
+    other_port = left_port;
+  }
+
+  if (!is_variable_port(variable_port)) {
+    if (!append_produced_active_pair(produced_active_pairs, left_port, right_port)) {
+      result.success = 0;
+      result.queue_overflow = 1;
+    }
+    return result;
+  }
+
+  PortValue variable_index = get_port_value(variable_port);
+  if (variable_index >= MAXIMUM_VARIABLE_COUNT) {
+    result.success = 0;
+    result.unsupported_interaction = 1;
+    return result;
+  }
+
+  Port previous_port = substitution_memory[variable_index];
+  Port unbound_marker = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+  if (previous_port == unbound_marker) {
+    substitution_memory[variable_index] = other_port;
+    return result;
+  }
+
+  substitution_memory[variable_index] = unbound_marker;
+  if (!append_produced_active_pair(produced_active_pairs, previous_port, other_port)) {
+    result.success = 0;
+    result.queue_overflow = 1;
+  }
+  return result;
+}
+
 static inline InteractionResult apply_erase_rule(
     PackedNode node_memory[MAXIMUM_NODE_COUNT],
     RedexPair redex_memory[MAXIMUM_REDEX_COUNT],
@@ -339,6 +384,42 @@ static inline InteractionResult apply_erase_rule(
   return result;
 }
 
+static inline InteractionResult apply_erase_rule_buffered(
+    PackedNode node_memory[MAXIMUM_NODE_COUNT],
+    ProducedActivePairs* produced_active_pairs,
+    Port left_port,
+    Port right_port) {
+  InteractionResult result = make_interaction_result(1);
+  Port erasure_port = left_port;
+  Port node_port = right_port;
+  if (!is_erasure_port(erasure_port)) {
+    erasure_port = right_port;
+    node_port = left_port;
+  }
+
+  NodeAddress node_address = get_port_value(node_port);
+  if (node_address >= MAXIMUM_NODE_COUNT) {
+    result.success = 0;
+    result.unsupported_interaction = 1;
+    return result;
+  }
+
+  PackedNode node_data = node_memory[node_address];
+  Port first_auxiliary_port = get_first_auxiliary_port(node_data);
+  Port second_auxiliary_port = get_second_auxiliary_port(node_data);
+
+  if (!append_produced_active_pair(produced_active_pairs, erasure_port, first_auxiliary_port)) {
+    result.success = 0;
+    result.queue_overflow = 1;
+    return result;
+  }
+  if (!append_produced_active_pair(produced_active_pairs, erasure_port, second_auxiliary_port)) {
+    result.success = 0;
+    result.queue_overflow = 1;
+  }
+  return result;
+}
+
 static inline InteractionResult apply_annihilate_rule(
     PackedNode node_memory[MAXIMUM_NODE_COUNT],
     RedexPair redex_memory[MAXIMUM_REDEX_COUNT],
@@ -368,6 +449,45 @@ static inline InteractionResult apply_annihilate_rule(
     return result;
   }
   if (!push_reduction_redex(redex_memory, redex_queue_tail_index, redex_queue_count_value, left_second_auxiliary_port, right_second_auxiliary_port)) {
+    result.success = 0;
+    result.queue_overflow = 1;
+  }
+  return result;
+}
+
+static inline InteractionResult apply_annihilate_rule_buffered(
+    PackedNode node_memory[MAXIMUM_NODE_COUNT],
+    ProducedActivePairs* produced_active_pairs,
+    Port left_port,
+    Port right_port) {
+  InteractionResult result = make_interaction_result(1);
+  NodeAddress left_node_address = get_port_value(left_port);
+  NodeAddress right_node_address = get_port_value(right_port);
+  if (left_node_address >= MAXIMUM_NODE_COUNT || right_node_address >= MAXIMUM_NODE_COUNT) {
+    result.success = 0;
+    result.unsupported_interaction = 1;
+    return result;
+  }
+
+  PackedNode left_node = node_memory[left_node_address];
+  PackedNode right_node = node_memory[right_node_address];
+  Port left_first_auxiliary_port = get_first_auxiliary_port(left_node);
+  Port left_second_auxiliary_port = get_second_auxiliary_port(left_node);
+  Port right_first_auxiliary_port = get_first_auxiliary_port(right_node);
+  Port right_second_auxiliary_port = get_second_auxiliary_port(right_node);
+
+  if (!append_produced_active_pair(
+          produced_active_pairs,
+          left_first_auxiliary_port,
+          right_first_auxiliary_port)) {
+    result.success = 0;
+    result.queue_overflow = 1;
+    return result;
+  }
+  if (!append_produced_active_pair(
+          produced_active_pairs,
+          left_second_auxiliary_port,
+          right_second_auxiliary_port)) {
     result.success = 0;
     result.queue_overflow = 1;
   }

@@ -128,6 +128,8 @@ The project currently provides:
 | `hls_config_synth_fpga_small_nostats.cfg` | FPGA-small synthesis probe with statistics disabled |
 | `hls_config_synth_fpga_small_nostats_nocall.cfg` | FPGA-small synthesis probe with statistics and `CALL` disabled |
 | `hls_config_synth_fpga_small_staged_call.cfg` | FPGA-small synthesis probe with staged single-lane `CALL` enabled |
+| `hls_config_fpga_small_produced_buffer.cfg` | FPGA-small CSIM config with staged `CALL` and produced-pair buffer enabled |
+| `hls_config_synth_fpga_small_produced_buffer.cfg` | FPGA-small synthesis probe with staged `CALL` and produced-pair buffer enabled |
 | `hls_config_synth_structural_core.cfg` | Structural IC core synthesis probe: `LINK`, `VOID`, `ERASE`, `ANNIHILATE`, `COMMUTE` |
 
 The `nostats` synthesis configs disable `ENABLE_REDUCER_STATISTICS` and
@@ -144,6 +146,12 @@ The staged-call config is the first synthesis-oriented attempt to keep `CALL`
 available without inlining the full packed-book instantiation loop into the
 small-rule reducer datapath. It should be compared against the no-`CALL` control
 before being described as a final FPGA-small `CALL` implementation.
+
+The produced-buffer configs are an explicit queue-architecture experiment. They
+route selected small-rule outputs through a local produced-pair buffer before
+writing back to `redex_memory`. They are not yet the final queue architecture:
+try2 showed that partial buffering preserves correctness and completes
+synthesis, but does not reduce the main-loop `II=4` queue-memory dependency.
 
 ## Suggested Diploma Wording
 

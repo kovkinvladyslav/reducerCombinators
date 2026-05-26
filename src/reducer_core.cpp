@@ -31,10 +31,20 @@ extern "C" void reducer_core(
   CallInstantiationState call_state;
   initialize_call_instantiation_state(&call_state);
 #endif
+#if ENABLE_PRODUCED_PAIR_BUFFER
+  ProducedActivePairs produced_active_pairs;
+  initialize_produced_active_pairs(&produced_active_pairs);
+  ap_uint<1> produced_pair_buffer_active = 0;
+  ap_uint<32> produced_pair_flush_index = 0;
+  InteractionRuleKind buffered_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+#endif
 
   while (
 #if ENABLE_STAGED_CALL
       call_state.active ||
+#endif
+#if ENABLE_PRODUCED_PAIR_BUFFER
+      produced_pair_buffer_active ||
 #endif
       (executed_steps < maximum_steps && !redex_queue_is_empty(redex_queue_count_value))) {
 #pragma HLS PIPELINE II=1
@@ -54,6 +64,25 @@ extern "C" void reducer_core(
     InteractionRuleKind interaction_rule_kind = INTERACTION_RULE_UNSUPPORTED;
     ap_uint<1> interaction_completed = 0;
 
+#if ENABLE_PRODUCED_PAIR_BUFFER
+    if (produced_pair_buffer_active) {
+      interaction_rule_kind = buffered_rule_kind;
+      if (!flush_one_produced_active_pair(
+              &produced_active_pairs,
+              &produced_pair_flush_index,
+              redex_memory,
+              &redex_queue_tail_index,
+              &redex_queue_count_value)) {
+        interaction_result.success = 0;
+        interaction_result.queue_overflow = 1;
+        produced_pair_buffer_active = 0;
+      } else if (produced_pair_flush_index >= produced_active_pairs.produced_pair_count) {
+        produced_pair_buffer_active = 0;
+        initialize_produced_active_pairs(&produced_active_pairs);
+        interaction_completed = 1;
+      }
+    } else
+#endif
 #if ENABLE_STAGED_CALL
     if (call_state.active) {
       interaction_rule_kind = INTERACTION_RULE_CALL;
@@ -95,6 +124,21 @@ extern "C" void reducer_core(
       interaction_completed = 1;
       switch (interaction_rule_kind) {
         case INTERACTION_RULE_LINK:
+#if ENABLE_PRODUCED_PAIR_BUFFER
+          initialize_produced_active_pairs(&produced_active_pairs);
+          interaction_result = apply_link_rule_buffered(
+              substitution_memory,
+              &produced_active_pairs,
+              left_port,
+              right_port);
+          if (interaction_result.success &&
+              !produced_active_pairs_are_empty(&produced_active_pairs)) {
+            produced_pair_buffer_active = 1;
+            produced_pair_flush_index = 0;
+            buffered_rule_kind = interaction_rule_kind;
+            interaction_completed = 0;
+          }
+#else
           interaction_result = apply_link_rule(
               substitution_memory,
               redex_memory,
@@ -102,11 +146,27 @@ extern "C" void reducer_core(
               &redex_queue_count_value,
               left_port,
               right_port);
+#endif
           break;
         case INTERACTION_RULE_VOID:
           interaction_result = apply_void_rule();
           break;
         case INTERACTION_RULE_ERASE:
+#if ENABLE_PRODUCED_PAIR_BUFFER
+          initialize_produced_active_pairs(&produced_active_pairs);
+          interaction_result = apply_erase_rule_buffered(
+              node_memory,
+              &produced_active_pairs,
+              left_port,
+              right_port);
+          if (interaction_result.success &&
+              !produced_active_pairs_are_empty(&produced_active_pairs)) {
+            produced_pair_buffer_active = 1;
+            produced_pair_flush_index = 0;
+            buffered_rule_kind = interaction_rule_kind;
+            interaction_completed = 0;
+          }
+#else
           interaction_result = apply_erase_rule(
               node_memory,
               redex_memory,
@@ -114,8 +174,24 @@ extern "C" void reducer_core(
               &redex_queue_count_value,
               left_port,
               right_port);
+#endif
           break;
         case INTERACTION_RULE_ANNIHILATE:
+#if ENABLE_PRODUCED_PAIR_BUFFER
+          initialize_produced_active_pairs(&produced_active_pairs);
+          interaction_result = apply_annihilate_rule_buffered(
+              node_memory,
+              &produced_active_pairs,
+              left_port,
+              right_port);
+          if (interaction_result.success &&
+              !produced_active_pairs_are_empty(&produced_active_pairs)) {
+            produced_pair_buffer_active = 1;
+            produced_pair_flush_index = 0;
+            buffered_rule_kind = interaction_rule_kind;
+            interaction_completed = 0;
+          }
+#else
           interaction_result = apply_annihilate_rule(
               node_memory,
               redex_memory,
@@ -123,6 +199,7 @@ extern "C" void reducer_core(
               &redex_queue_count_value,
               left_port,
               right_port);
+#endif
           break;
         case INTERACTION_RULE_COMMUTE:
           interaction_result = apply_commute_rule(

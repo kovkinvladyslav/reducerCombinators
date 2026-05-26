@@ -41,6 +41,10 @@
 #endif
 #endif
 
+#ifndef ENABLE_PRODUCED_PAIR_BUFFER
+#define ENABLE_PRODUCED_PAIR_BUFFER 0
+#endif
+
 static const int PORT_WIDTH = 32;
 static const int PORT_TAG_BIT_COUNT = 3;
 static const int PORT_VALUE_BIT_COUNT = PORT_WIDTH - PORT_TAG_BIT_COUNT;
