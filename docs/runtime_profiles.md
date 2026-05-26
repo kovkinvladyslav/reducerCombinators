@@ -126,6 +126,7 @@ The project currently provides:
 | `hls_config_synth_parallel_fpga_small_structural_phased_nostats.cfg` | Focused structural parallel synthesis probe with explicit refill/select/execute/commit service phases |
 | `hls_config_synth_parallel_fpga_small_structural_phased_nolink_nostats.cfg` | Diagnostic structural parallel synthesis probe with the try19 phased scheduler and `LINK` disabled to isolate substitution-memory cost |
 | `hls_config_synth_parallel_fpga_small_structural_phased_nolink_regqueue_nostats.cfg` | Diagnostic structural parallel synthesis probe with `LINK` disabled and register-backed lane-local queues |
+| `hls_config_synth_parallel_fpga_small_structural_phased_nolink_regqueue_helpers_nostats.cfg` | Failed diagnostic structural parallel probe that factors phased scheduler services into non-inlined helpers; useful evidence that C++ helper boundaries are not enough to reduce scheduler II |
 | `hls_config_fpga_small.cfg` | Single-lane reducer with `FPGA_SMALL_PROFILE` enabled |
 | `hls_config_synth_full.cfg` | Lean full-profile synthesis config |
 | `hls_config_synth_fpga_small.cfg` | Lean FPGA-small synthesis config |

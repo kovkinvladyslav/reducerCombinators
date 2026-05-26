@@ -1049,3 +1049,55 @@ granularity, not queue storage alone.
 
 The next experiment should split scheduler services more explicitly rather than
 continue shrinking the local queue.
+
+## Try22 Helper-Factored Parallel Services
+
+Try22 tests whether the remaining try21 `II=3` can be reduced by factoring the
+phased scheduler branches into explicit C++ service helpers:
+
+```text
+parallel_refill_service
+parallel_select_service
+parallel_execute_service
+parallel_commit_service
+```
+
+The focused profile keeps the same rule subset as try21:
+
+```text
+VOID
+ERASE
+ANNIHILATE
+```
+
+and keeps the same register-backed lane-local queues. The only intended
+architectural difference is the C++ expression of the service bodies. This makes
+try22 a clean test of whether helper boundaries are enough for HLS to schedule
+the services independently.
+
+Focused synthesis completed, but the result was worse:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Violation | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| Try21 register local queues | 3914 | 2071 | 0 | 0 | 3 | Resource Limitation | `-0.02` | `136.57 MHz` |
+| Try22 helper-factored services | 6309 | 5390 | 0 | 0 | 6 | Memory Dependency | `-3.76` | `90.42 MHz` |
+
+The detailed HLS report shows why this did not help. HLS instantiated the four
+helpers inside the same parent pipeline:
+
+| Helper | Latency | Interval | Notes |
+| --- | ---: | ---: | --- |
+| `parallel_refill_service` | 1 | 1 | local/global queue refill |
+| `parallel_select_service` | 5 | 1 | candidate selection and conflict checks |
+| `parallel_execute_service` | 4 | 4 | visible memory-dependency limiter |
+| `parallel_commit_service` | 1 | 1 | produced-pair writeback |
+
+This is useful negative evidence for the diploma. A C++ function boundary is
+not the same as a separate hardware service. In this case it added helper
+instances and parent-loop coordination overhead while keeping all service
+control under the same pipelined scheduler loop.
+
+The next parallel queue/control architecture should use a true service-loop
+split or a top-level FSM in which each service owns a narrower loop body. The
+goal should be explicit memory and counter ownership, not merely non-inlined
+helper functions.
