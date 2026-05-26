@@ -2300,3 +2300,50 @@ The next experiment should stop optimizing classification alone. A better
 direction is a dedicated narrow selected non-link service that validates/reads
 node data in one tick and emits produced pairs in a later tick, without
 reusing the broad `PARALLEL_SERVICE_CLASSIFY` controller that failed in try43.
+
+## Try46 Dedicated Non-Link Read Service
+
+Try46 tests that recommendation under:
+
+```text
+ENABLE_PARALLEL_STAGED_NON_LINK_SERVICE
+```
+
+The implementation adds a dedicated `PARALLEL_SERVICE_NON_LINK_READ` phase for
+selected `ERASE`/`ANNIHILATE`. CLASSIFY still identifies the selected rule, but
+node-address validation and node-data reads move into the new service. EXECUTE
+then emits the two captured produced pairs and counts the interaction.
+
+Full-profile CSIM and FPGA-small CSIM passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try41 staged `LINK` decide/write split | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+| Try45 compact classify in CLASSIFY | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+| Try46 dedicated non-link read service | 3752 | 1288 | 0 | 0 | 1 | `-4.92` | `81.81 MHz` |
+
+This is a negative result. The new service phase is functionally correct, but
+it widens the selected-command controller. Vitis reports the new critical path
+through:
+
+```text
+selected produced-pair right port
+get_interaction_rule_kind / ports_have_same_tag
+selected_command_rule_kind sparse mux
+parallel_service_phase select/store
+```
+
+For diploma wording:
+
+```text
+Try46 shows that a new service phase must also have a narrow control encoding.
+Moving node validation out of EXECUTE is not enough when the transition into
+that phase still depends on the full selected rule kind and the widened
+parallel service-phase mux. The architecture needs narrower selected-command
+class state, not just more states.
+```
+
+The next experiment should not add another general service phase using the full
+`InteractionRuleKind` enum. It should either combine non-link staging with a
+narrow class bitfield, or specialize only one non-link rule at a time to avoid
+widening the shared selected-command controller.
