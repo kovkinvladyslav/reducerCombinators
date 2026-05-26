@@ -722,10 +722,14 @@ static inline InteractionResult apply_lane_interaction_rule(
 #endif
     case INTERACTION_RULE_VOID:
       return apply_void_rule();
+#if ENABLE_RULE_ERASE
     case INTERACTION_RULE_ERASE:
       return apply_lane_erase_rule(node_memory, produced_active_pairs, left_port, right_port);
+#endif
+#if ENABLE_RULE_ANNIHILATE
     case INTERACTION_RULE_ANNIHILATE:
       return apply_lane_annihilate_rule(node_memory, produced_active_pairs, left_port, right_port);
+#endif
 #if ENABLE_RULE_COMMUTE
     case INTERACTION_RULE_COMMUTE:
       return apply_lane_commute_rule(

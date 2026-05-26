@@ -1194,3 +1194,51 @@ and status updates still share one parent pipeline.
 The next parallel experiment should therefore split writeback ownership, for
 example by making commit/writeback the only service that mutates local/global
 queue counters.
+
+## Try25 VOID-Only Commit-Writeback Isolation
+
+Try25 tests the try24 conclusion by removing produced-pair rules from the
+focused synthesis profile. It adds default-on gates for:
+
+```text
+ENABLE_RULE_ERASE
+ENABLE_RULE_ANNIHILATE
+```
+
+Normal full-profile and FPGA-small CSIM keep both gates enabled and passed with
+`Overall Result: PASS`. The focused synthesis config disables every structural
+rule except `VOID`, while keeping the try21/try24 phased scheduler and
+register-backed lane queues:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_voidonly_regqueue_nostats.cfg
+```
+
+Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try24 fixed pairwise select | 3913 | 2070 | 0 | 0 | 3 | `-0.02` | `136.57 MHz` |
+| Try25 `VOID` only | 2730 | 1469 | 0 | 0 | 1 | `-9.15` | `60.78 MHz` |
+
+This is useful but not a new baseline. The positive result is that HLS reaches
+`II=1` once `ERASE` and `ANNIHILATE` are removed from the focused profile,
+which confirms that produced-pair/rule writeback contributes to the try21/try24
+`II=3` limiter. The negative result is that timing becomes much worse even in
+the tiny `VOID`-only subset. The remaining path is broad scheduler control:
+global queue counters, local queue counters, selected-lane state, rule-kind
+classification, and status/step updates still meet in one parent pipeline.
+
+For diploma wording:
+
+```text
+Try25 shows that produced-pair writeback is part of the parallel scheduler's
+initiation-interval limit, but simply removing producer rules is not a hardware
+architecture. The scheduler still needs explicit registered boundaries between
+selection, execution, and commit/writeback.
+```
+
+The next parallel try should keep the structural rule subset and add a real
+selected-lane command/writeback boundary. SELECT should produce a small command
+register, EXECUTE should consume that command, and COMMIT should be the only
+phase that mutates local/global queue counters.

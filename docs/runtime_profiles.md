@@ -129,6 +129,7 @@ The project currently provides:
 | `hls_config_synth_parallel_fpga_small_structural_phased_nolink_regqueue_helpers_nostats.cfg` | Failed diagnostic structural parallel probe that factors phased scheduler services into non-inlined helpers; useful evidence that C++ helper boundaries are not enough to reduce scheduler II |
 | `hls_config_synth_parallel_fpga_small_structural_phased_nolink_regqueue_unpipelined_nostats.cfg` | Diagnostic structural parallel probe that removes the parent scheduler-loop pipeline constraint to measure service-dispatch pressure separately from explicit II |
 | `hls_config_synth_parallel_fpga_small_structural_phased_nolink_regqueue_pairwise_select_nostats.cfg` | Diagnostic structural parallel probe that specializes SELECT/conflict logic for the fixed two-lane case |
+| `hls_config_synth_parallel_fpga_small_structural_phased_voidonly_regqueue_nostats.cfg` | Failed diagnostic parallel probe that leaves only `VOID` enabled to isolate produced-pair/writeback pressure; useful evidence that removing produced-pair rules can reach `II=1` but with unacceptable timing |
 | `hls_config_fpga_small.cfg` | Single-lane reducer with `FPGA_SMALL_PROFILE` enabled |
 | `hls_config_synth_full.cfg` | Lean full-profile synthesis config |
 | `hls_config_synth_fpga_small.cfg` | Lean FPGA-small synthesis config |

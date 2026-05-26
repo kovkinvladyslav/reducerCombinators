@@ -62,15 +62,19 @@ static inline InteractionRuleKind get_interaction_rule_kind(Port left_port, Port
     return INTERACTION_RULE_VOID;
   }
 
+#if ENABLE_RULE_ERASE
   if ((is_erasure_port(left_port) && is_binary_node_port(right_port)) ||
       (is_erasure_port(right_port) && is_binary_node_port(left_port))) {
     return INTERACTION_RULE_ERASE;
   }
+#endif
 
   if (is_binary_node_port(left_port) && is_binary_node_port(right_port)) {
+#if ENABLE_RULE_ANNIHILATE
     if (ports_have_same_tag(left_port, right_port)) {
       return INTERACTION_RULE_ANNIHILATE;
     }
+#endif
 #if ENABLE_RULE_COMMUTE
     return INTERACTION_RULE_COMMUTE;
 #endif

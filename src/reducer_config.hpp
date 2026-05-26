@@ -41,6 +41,14 @@
 #define ENABLE_RULE_LINK 1
 #endif
 
+#ifndef ENABLE_RULE_ERASE
+#define ENABLE_RULE_ERASE 1
+#endif
+
+#ifndef ENABLE_RULE_ANNIHILATE
+#define ENABLE_RULE_ANNIHILATE 1
+#endif
+
 #ifndef ENABLE_RULE_OPERATE
 #define ENABLE_RULE_OPERATE 1
 #endif
