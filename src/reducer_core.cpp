@@ -83,6 +83,10 @@ static inline void record_reducer_completed_interaction(
   *executed_steps = *executed_steps + 1;
 }
 
+static inline void record_reducer_completed_step(ap_uint<32>* executed_steps) {
+  *executed_steps = *executed_steps + 1;
+}
+
 extern "C" void reducer_core(
     PackedNode node_memory[MAXIMUM_NODE_COUNT],
     Port substitution_memory[MAXIMUM_VARIABLE_COUNT],
@@ -119,11 +123,17 @@ extern "C" void reducer_core(
   initialize_produced_active_pairs(&produced_active_pairs);
   ap_uint<1> produced_pair_buffer_active = 0;
   ap_uint<32> produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+  ap_uint<1> buffered_rule_is_call = 0;
+#else
   InteractionRuleKind buffered_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+#endif
 #endif
 #if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
   ap_uint<1> pending_completion_active = 0;
+#if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
   InteractionRuleKind pending_completion_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+#endif
 #endif
 
   while (
@@ -152,12 +162,18 @@ extern "C" void reducer_core(
 
 #if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
     if (pending_completion_active) {
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+      record_reducer_completed_step(&executed_steps);
+#else
       record_reducer_completed_interaction(
           reducer_statistics,
           pending_completion_rule_kind,
           &executed_steps);
+#endif
       pending_completion_active = 0;
+#if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
       pending_completion_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+#endif
       continue;
     }
 #endif
@@ -168,7 +184,9 @@ extern "C" void reducer_core(
 
 #if ENABLE_PRODUCED_PAIR_BUFFER
     if (produced_pair_buffer_active) {
+#if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
       interaction_rule_kind = buffered_rule_kind;
+#endif
       if (!flush_one_produced_active_pair(
               &produced_active_pairs,
               &produced_pair_flush_index,
@@ -187,18 +205,28 @@ extern "C" void reducer_core(
         produced_pair_buffer_active = 0;
         initialize_produced_active_pairs(&produced_active_pairs);
 #if ENABLE_STAGED_CALL
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+        if (buffered_rule_is_call && call_state.active) {
+#else
         if (buffered_rule_kind == INTERACTION_RULE_CALL && call_state.active) {
+#endif
           continue;
         }
 #endif
 #if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
         pending_completion_active = 1;
+#if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
         pending_completion_rule_kind = buffered_rule_kind;
+#endif
+#else
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+        record_reducer_completed_step(&executed_steps);
 #else
         record_reducer_completed_interaction(
             reducer_statistics,
             buffered_rule_kind,
             &executed_steps);
+#endif
 #endif
         continue;
       }
@@ -223,7 +251,11 @@ extern "C" void reducer_core(
           !produced_active_pairs_are_empty(&produced_active_pairs)) {
         produced_pair_buffer_active = 1;
         produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+        buffered_rule_is_call = 1;
+#else
         buffered_rule_kind = interaction_rule_kind;
+#endif
         continue;
       }
       if (!interaction_result.success) {
@@ -238,7 +270,9 @@ extern "C" void reducer_core(
       }
 #if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
       pending_completion_active = 1;
+#if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
       pending_completion_rule_kind = interaction_rule_kind;
+#endif
 #else
       record_reducer_completed_interaction(
           reducer_statistics,
@@ -297,7 +331,11 @@ extern "C" void reducer_core(
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+            buffered_rule_is_call = 0;
+#else
             buffered_rule_kind = interaction_rule_kind;
+#endif
             interaction_completed = 0;
           }
 #else
@@ -325,7 +363,11 @@ extern "C" void reducer_core(
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+            buffered_rule_is_call = 0;
+#else
             buffered_rule_kind = interaction_rule_kind;
+#endif
             interaction_completed = 0;
           }
 #else
@@ -350,7 +392,11 @@ extern "C" void reducer_core(
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+            buffered_rule_is_call = 0;
+#else
             buffered_rule_kind = interaction_rule_kind;
+#endif
             interaction_completed = 0;
           }
 #else
@@ -379,7 +425,11 @@ extern "C" void reducer_core(
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+            buffered_rule_is_call = 0;
+#else
             buffered_rule_kind = interaction_rule_kind;
+#endif
             interaction_completed = 0;
           }
 #else
@@ -412,7 +462,11 @@ extern "C" void reducer_core(
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+            buffered_rule_is_call = 0;
+#else
             buffered_rule_kind = interaction_rule_kind;
+#endif
             interaction_completed = 0;
           }
 #else
@@ -445,7 +499,11 @@ extern "C" void reducer_core(
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+            buffered_rule_is_call = 0;
+#else
             buffered_rule_kind = interaction_rule_kind;
+#endif
             interaction_completed = 0;
           }
 #else
@@ -481,7 +539,11 @@ extern "C" void reducer_core(
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_buffer_active = 1;
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+            buffered_rule_is_call = 1;
+#else
             buffered_rule_kind = interaction_rule_kind;
+#endif
           }
           interaction_completed = !call_state.active && !produced_pair_buffer_active;
 #else
@@ -545,7 +607,9 @@ extern "C" void reducer_core(
 
 #if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
     pending_completion_active = 1;
+#if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
     pending_completion_rule_kind = interaction_rule_kind;
+#endif
     continue;
 #else
     record_reducer_completed_interaction(

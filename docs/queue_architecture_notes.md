@@ -238,3 +238,36 @@ or fanout of pending runtime state. Good candidates are the produced-pair buffer
 state, deferred completion state, and status/result muxing around staged
 services. The goal should be to preserve try5/try6's `II=1` while reducing LUT
 pressure more substantially than small-helper inlining.
+
+## Try7 Compact Completion Metadata
+
+Try7 kept the try6 scheduler structure and added
+`ENABLE_COMPACT_COMPLETION_STATE`. In no-statistics synthesis builds, the
+pending completion service no longer carries a full `InteractionRuleKind`,
+because the only required action is incrementing `executed_steps`. The
+produced-buffer metadata is also reduced to a single `buffered_rule_is_call`
+bit, which is enough to avoid completing a staged `CALL` before its transaction
+finishes.
+
+Try7 passed full-profile CSIM and FPGA-small CSIM. FPGA-small synthesis
+completed:
+
+| Build | LUT | FF | DSP | Main loop II | Timing/slack | Main result |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| FPGA-small inline small helpers try6 | 10292 | 4385 | 2 | 1 | `-1.21` | helper area baseline |
+| FPGA-small compact completion try7 | 9997 | 4354 | 2 | 1 | `-1.21` | modest state-area recovery |
+
+The result is a second successful area-recovery step: `295 LUT` and `31 FF`
+were removed while preserving final `II=1`. The critical path did not change.
+Vitis still reports a path from the `produced_pair_buffer_active` phi into the
+pipeline `targetBlock` call, which means the remaining timing/control pressure
+is around produced-buffer service selection rather than rule-kind metadata.
+
+## Next Queue Architecture
+
+The next try should directly target the produced-buffer service state. The
+current design carries a separate active flag and a 32-bit flush index through a
+wide control network. A useful next experiment is to replace that pair with a
+compact produced-buffer cursor, such as a small remaining-count or service-phase
+field, because the maximum number of produced active pairs per interaction is
+bounded at compile time.

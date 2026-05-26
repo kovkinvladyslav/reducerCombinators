@@ -134,6 +134,8 @@ The project currently provides:
 | `hls_config_synth_fpga_small_deferred_completion.cfg` | FPGA-small synthesis probe with staged `CALL`, produced-pair buffer, and deferred completion accounting enabled |
 | `hls_config_fpga_small_inline_small_rules.cfg` | FPGA-small CSIM config with staged `CALL`, produced-pair buffer, deferred completion accounting, and small-rule helper inlining enabled |
 | `hls_config_synth_fpga_small_inline_small_rules.cfg` | FPGA-small synthesis probe with staged `CALL`, produced-pair buffer, deferred completion accounting, and small-rule helper inlining enabled |
+| `hls_config_fpga_small_compact_completion.cfg` | FPGA-small CSIM config with staged `CALL`, produced-pair buffer, deferred completion accounting, small-rule helper inlining, and compact completion metadata enabled |
+| `hls_config_synth_fpga_small_compact_completion.cfg` | FPGA-small synthesis probe with staged `CALL`, produced-pair buffer, deferred completion accounting, small-rule helper inlining, and compact no-statistics completion metadata enabled |
 | `hls_config_synth_structural_core.cfg` | Structural IC core synthesis probe: `LINK`, `VOID`, `ERASE`, `ANNIHILATE`, `COMMUTE` |
 
 The `nostats` synthesis configs disable `ENABLE_REDUCER_STATISTICS` and
@@ -171,6 +173,12 @@ commit service, and deferred completion accounting, but force the tiny buffered
 `LINK`, `ERASE`, and `ANNIHILATE` helpers inline. Try6 showed this preserves
 final loop `II=1` and recovers a small amount of area: `10292 LUT` and `4385 FF`
 compared with try5's `10591 LUT` and `4425 FF`.
+
+The compact-completion configs are a state-width experiment on top of try6. In
+no-statistics synthesis builds, completion accounting does not need the full
+completed rule kind, so `ENABLE_COMPACT_COMPLETION_STATE` carries only the
+metadata needed for control. Try7 showed this preserves final loop `II=1` and
+reduces area to `9997 LUT` and `4354 FF`.
 
 ## Suggested Diploma Wording
 
