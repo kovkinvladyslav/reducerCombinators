@@ -2567,3 +2567,58 @@ different approach is to move selected-rule address validation earlier, before
 the selected execution tick, or to split success emission and status commit
 into separate scheduler states so HLS cannot merge them back into a single
 hot-loop `local_status_code` selection path.
+
+## Try51 Prevalidated Selected ERASE
+
+Try51 tests the "move validation earlier" branch under:
+
+```text
+ENABLE_PARALLEL_PREVALIDATED_SELECTED_ERASE
+```
+
+The implementation keeps try49/try50's true class-only selected-command base,
+but selected `ERASE` is prevalidated in CLASSIFY. CLASSIFY selects the erasure
+and binary-node ports, checks the node address, reads node data, and captures
+the two produced pairs. EXECUTE then only pops the selected local pair and
+copies captured ports into the compact produced-pair buffer.
+
+Full-profile CSIM and FPGA-small CSIM passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try49 direct selected `ERASE` | 3661 | 1165 | 0 | 0 | 1 | `~ -1.16` | `118.28 MHz` |
+| Try50 direct `ERASE` pending status | 3659 | 1165 | 0 | 0 | 1 | `~ -1.155` | `118.28 MHz` |
+| Try51 prevalidated selected `ERASE` | 3698 | 1300 | 0 | 0 | 1 | `~ -1.155` | `118.28 MHz` |
+
+This is a negative result. The critical path still contains the selected ERASE
+address/status chain:
+
+```text
+selected produced-pair left port
+selected ERASE prevalidation
+node-address selection
+node-address range check
+local_status_code phi/store
+```
+
+The important evidence is that moving validation from EXECUTE into CLASSIFY
+does not isolate it when both are still branches of the same pipelined HLS
+loop. Vitis merges the service arms back into one scheduler datapath and one
+`local_status_code` phi. The added capture registers also raise FF count from
+`1165` in try50 to `1300`.
+
+For diploma wording:
+
+```text
+Try51 demonstrates that staging inside a single pipelined loop is not the same
+as architectural module separation. Even when validation is assigned to a
+different logical service state, HLS may still synthesize the status-producing
+branches into the same scheduler pipeline and preserve the critical path.
+```
+
+The next experiment should not keep reshuffling selected ERASE validation
+between service arms. It should reduce the shared scheduler status/control
+surface itself, either by introducing a deliberately status-free focused fast
+loop for known-valid benchmark graphs, or by splitting refill/classify,
+execute, and commit into separate HLS functions/modules so the status path is
+not one monolithic loop phi.

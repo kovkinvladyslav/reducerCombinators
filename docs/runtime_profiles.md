@@ -590,3 +590,23 @@ and the critical path still ends in `local_status_code`. The lesson for future
 profiles is that the shared scheduler status phi must be structurally removed
 from the selected `ERASE` fast path; helper-local pending flags alone are not
 enough for HLS to separate the hardware.
+
+Try51 tests selected `ERASE` prevalidation:
+
+```text
+hls_config_try51_prevalidated_selected_erase_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_PREVALIDATED_SELECTED_ERASE` on top of the
+try49/try50 selected-command base. The selected `ERASE` node-address check and
+node read move into CLASSIFY, and EXECUTE copies captured produced pairs.
+Full CSIM and FPGA-small CSIM passed. Focused CSYNTH completed at `3698 LUT`,
+`1300 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and about `-1.155` slack with
+estimated Fmax `118.28 MHz`.
+
+This is negative evidence. It shows that moving selected `ERASE` validation
+between service arms does not help while the arms remain inside one HLS
+pipelined scheduler loop. Vitis still forms the same `local_status_code` phi,
+and the extra captured-pair registers increase FF usage. Future profiles should
+target the scheduler status/control boundary itself, not another placement of
+the same validation logic.
