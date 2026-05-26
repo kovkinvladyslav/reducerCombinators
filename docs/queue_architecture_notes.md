@@ -2467,3 +2467,55 @@ It should specialize one selected non-link datapath at a time, beginning with
 `ERASE`, and measure whether separating node-address validation/status from
 produced-pair emission reduces the `local_status_code` critical path without
 reintroducing broad service-phase muxing.
+
+## Try49 Direct Selected ERASE Datapath
+
+Try49 follows the try48 recommendation under:
+
+```text
+ENABLE_PARALLEL_DIRECT_SELECTED_ERASE
+```
+
+The implementation keeps the try48 class-only selected-command interface, but
+specializes only selected `ERASE`. The new helper pops the selected local pair,
+selects the erasure and binary-node ports, validates the node address, and
+writes the two produced pairs directly into the compact produced-pair buffer.
+Selected `ANNIHILATE` remains on the existing selected non-link helper, so the
+measurement isolates one-rule datapath specialization.
+
+Full-profile CSIM and FPGA-small CSIM passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try41 staged `LINK` decide/write split | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+| Try48 true class-only selected command | 3791 | 1162 | 0 | 0 | 1 | `~ -1.16` | `118.28 MHz` |
+| Try49 direct selected `ERASE` | 3661 | 1165 | 0 | 0 | 1 | `~ -1.16` | `118.28 MHz` |
+
+This is a useful but insufficient result. LUT improves over try48 and slightly
+beats try41, but FF rises slightly and timing does not improve. The scheduler
+pipeline LUT drops from `3633` in try48 to `3503` in try49, showing that
+one-rule datapath specialization can reduce area.
+
+The critical path is still the selected ERASE status path:
+
+```text
+selected produced-pair left port
+erasure-port / node-address selection
+node-address range check
+local_status_code phi/store
+```
+
+For diploma wording:
+
+```text
+Try49 shows that one-rule datapath specialization can reduce LUT area without
+changing semantics, but it does not address the dominant timing path when
+range-check status production remains in the same cycle as produced-pair
+formation.
+```
+
+The next experiment should keep the direct selected `ERASE` datapath but
+separate rare invalid-node status from the common success path. The hardware
+question is whether `local_status_code` must be produced in the same cycle as
+selected `ERASE` output formation, or whether a narrower pending-status path
+can remove it from the hot scheduler critical path.
