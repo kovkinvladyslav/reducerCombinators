@@ -426,6 +426,11 @@ static inline ap_uint<1> execute_selected_erase_direct(
     RedexPair active_pair_to_commit,
     ProducedActivePairs* produced_active_pairs,
     ReducerStatistics* reducer_statistics,
+#if ENABLE_PARALLEL_DIRECT_ERASE_PENDING_STATUS
+    ReducerServicePhase* parallel_service_phase,
+    ap_uint<1>* direct_erase_pending_status_valid,
+    ap_uint<32>* direct_erase_pending_status_code,
+#endif
     ap_uint<32>* local_status_code) {
   RedexPair discarded_active_pair;
   active_pair_queue_pop_local(reducer_lane_state, &discarded_active_pair);
@@ -441,12 +446,18 @@ static inline ap_uint<1> execute_selected_erase_direct(
 
   NodeAddress node_address = get_port_value(node_port);
   if (node_address >= MAXIMUM_NODE_COUNT) {
+#if ENABLE_PARALLEL_DIRECT_ERASE_PENDING_STATUS
+    *direct_erase_pending_status_valid = 1;
+    *direct_erase_pending_status_code = REDUCER_STATUS_UNSUPPORTED_INTERACTION;
+    *parallel_service_phase = PARALLEL_SERVICE_STATUS;
+#else
     InteractionResult unsupported_result = make_interaction_result(0);
     unsupported_result.unsupported_interaction = 1;
     record_parallel_error_status(
         reducer_statistics,
         unsupported_result,
         local_status_code);
+#endif
     return 0;
   }
 
@@ -1037,6 +1048,10 @@ extern "C" void reducer_core_parallel(
   ap_uint<1> pending_status_valid = 0;
   ap_uint<32> pending_status_code = REDUCER_STATUS_SUCCESS;
 #endif
+#if ENABLE_PARALLEL_DIRECT_ERASE_PENDING_STATUS
+  ap_uint<1> direct_erase_pending_status_valid = 0;
+  ap_uint<32> direct_erase_pending_status_code = REDUCER_STATUS_SUCCESS;
+#endif
   RedexPair phased_candidate_active_pairs[REDUCER_LANE_COUNT];
   InteractionRuleKind phased_candidate_rule_kinds[REDUCER_LANE_COUNT];
   ap_uint<1> phased_lane_should_commit[REDUCER_LANE_COUNT];
@@ -1155,8 +1170,10 @@ extern "C" void reducer_core_parallel(
 #endif
 #if ENABLE_PARALLEL_PENDING_STATUS
        || parallel_service_phase == PARALLEL_SERVICE_STATUS
+#elif ENABLE_PARALLEL_DIRECT_ERASE_PENDING_STATUS
+       || parallel_service_phase == PARALLEL_SERVICE_STATUS
 #endif
-       ) &&
+      ) &&
 #else
       executed_steps < maximum_steps &&
 #endif
@@ -1858,6 +1875,13 @@ extern "C" void reducer_core_parallel(
         pending_status_code = REDUCER_STATUS_SUCCESS;
       }
       parallel_service_phase = PARALLEL_SERVICE_REFILL;
+#elif ENABLE_PARALLEL_DIRECT_ERASE_PENDING_STATUS
+      if (direct_erase_pending_status_valid) {
+        local_status_code = direct_erase_pending_status_code;
+        direct_erase_pending_status_valid = 0;
+        direct_erase_pending_status_code = REDUCER_STATUS_SUCCESS;
+      }
+      parallel_service_phase = PARALLEL_SERVICE_REFILL;
 #else
       parallel_service_phase = PARALLEL_SERVICE_REFILL;
 #endif
@@ -2278,6 +2302,11 @@ extern "C" void reducer_core_parallel(
                 selected_command_active_pair,
                 &selected_command_produced_active_pairs,
                 reducer_statistics,
+#if ENABLE_PARALLEL_DIRECT_ERASE_PENDING_STATUS
+                &parallel_service_phase,
+                &direct_erase_pending_status_valid,
+                &direct_erase_pending_status_code,
+#endif
                 &local_status_code);
           } else {
 #endif
