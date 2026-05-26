@@ -790,3 +790,75 @@ only observation. Two useful directions are:
 - an explicit parallel service-phase controller that separates local-queue pop,
   conflict decision, lane execution, and commit, mirroring the successful
   single-lane service-phase architecture.
+
+## Try18 Structural Parallel-Core Probe
+
+Try18 follows the first direction from try17. It adds an explicit
+`ENABLE_RULE_COMMUTE` gate, matching the existing `CALL`, `OPERATE`, and
+`SWITCH` gates, and then synthesizes the parallel top with only the small
+structural rules enabled:
+
+```text
+VOID
+LINK
+ERASE
+ANNIHILATE
+```
+
+The focused config is:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_nostats.cfg
+```
+
+It disables:
+
+```text
+ENABLE_RULE_COMMUTE
+ENABLE_RULE_OPERATE
+ENABLE_RULE_SWITCH
+ENABLE_RULE_CALL
+ENABLE_REDUCER_STATISTICS
+ENABLE_PARALLEL_REDUCER_STATISTICS
+```
+
+Default host validation still passed with `Overall Result: PASS`, so the new
+`COMMUTE` gate preserves existing behavior when left at its default value.
+
+The structural parallel CSYNTH completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try17 no statistics, full FPGA-small/no-`CALL` rules | 11111 | 5759 | 2 | 4 | 12 | `-6.14` |
+| Try18 structural small rules only | 4631 | 2873 | 0 | 4 | 8 | `-7.79` |
+
+The report confirms that allocation-heavy rule bodies were removed from the
+pipeline summary: `apply_lane_commute_rule`, `apply_lane_operate_rule`,
+`apply_lane_switch_rule`, and `apply_numeric_operation` no longer appear in the
+inlined pipeline helper list. `allocated_node_count` and
+`allocated_variable_count` are marked unused because the remaining structural
+rules do not allocate fresh nodes or variables.
+
+This gives a clean architectural split:
+
+- rule-body reduction is effective for area and improves II from `12` to `8`;
+- the remaining limiter is still a `Memory Dependency`;
+- therefore the parallel bottleneck is not only numeric/allocation rule logic.
+
+Even the structural top still combines local queue access, candidate dispatch,
+conflict checking, lane execution, produced-pair enqueue, and memory updates in
+one pipelined scheduler loop. For the diploma, try18 is evidence that
+multi-lane scaling requires explicit service phases or memory arbitration,
+rather than only reducing the supported rule subset.
+
+The next parallel try should use a service-phase split:
+
+```text
+refill local queues
+select and conflict-check candidates
+execute accepted lane work
+commit produced pairs
+```
+
+This mirrors the successful single-lane compact service-phase architecture and
+would make memory ownership clearer to HLS.

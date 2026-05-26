@@ -45,6 +45,10 @@
 #define ENABLE_RULE_SWITCH 1
 #endif
 
+#ifndef ENABLE_RULE_COMMUTE
+#define ENABLE_RULE_COMMUTE 1
+#endif
+
 #ifndef ENABLE_STAGED_CALL
 #if defined(FPGA_SMALL_PROFILE)
 #define ENABLE_STAGED_CALL 1

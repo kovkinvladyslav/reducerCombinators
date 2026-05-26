@@ -69,7 +69,9 @@ static inline InteractionRuleKind get_interaction_rule_kind(Port left_port, Port
     if (ports_have_same_tag(left_port, right_port)) {
       return INTERACTION_RULE_ANNIHILATE;
     }
+#if ENABLE_RULE_COMMUTE
     return INTERACTION_RULE_COMMUTE;
+#endif
   }
 
   return INTERACTION_RULE_UNSUPPORTED;

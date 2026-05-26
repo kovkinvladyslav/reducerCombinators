@@ -122,6 +122,7 @@ The project currently provides:
 | `hls_config_parallel.cfg` | Experimental parallel reducer top |
 | `hls_config_synth_parallel_fpga_small_bank_metrics.cfg` | Focused parallel synthesis probe with `FPGA_SMALL_PROFILE`, `CALL` disabled, statistics enabled, and bank-conflict counters present |
 | `hls_config_synth_parallel_fpga_small_nostats_nocall.cfg` | Focused parallel synthesis probe with `FPGA_SMALL_PROFILE`, `CALL` disabled, and reducer/parallel statistics disabled |
+| `hls_config_synth_parallel_fpga_small_structural_nostats.cfg` | Focused structural parallel synthesis probe with only `VOID`, `LINK`, `ERASE`, and `ANNIHILATE` enabled |
 | `hls_config_fpga_small.cfg` | Single-lane reducer with `FPGA_SMALL_PROFILE` enabled |
 | `hls_config_synth_full.cfg` | Lean full-profile synthesis config |
 | `hls_config_synth_fpga_small.cfg` | Lean FPGA-small synthesis config |

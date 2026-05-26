@@ -6,10 +6,20 @@
 #include "interaction_rules.hpp"
 
 static inline ap_uint<1> produced_rule_needs_allocation(InteractionRuleKind interaction_rule_kind) {
-  return interaction_rule_kind == INTERACTION_RULE_COMMUTE ||
-         interaction_rule_kind == INTERACTION_RULE_OPERATE ||
-         interaction_rule_kind == INTERACTION_RULE_SWITCH ||
-         interaction_rule_kind == INTERACTION_RULE_CALL;
+  ap_uint<1> needs_allocation = 0;
+#if ENABLE_RULE_COMMUTE
+  needs_allocation = needs_allocation || interaction_rule_kind == INTERACTION_RULE_COMMUTE;
+#endif
+#if ENABLE_RULE_OPERATE
+  needs_allocation = needs_allocation || interaction_rule_kind == INTERACTION_RULE_OPERATE;
+#endif
+#if ENABLE_RULE_SWITCH
+  needs_allocation = needs_allocation || interaction_rule_kind == INTERACTION_RULE_SWITCH;
+#endif
+#if ENABLE_RULE_CALL
+  needs_allocation = needs_allocation || interaction_rule_kind == INTERACTION_RULE_CALL;
+#endif
+  return needs_allocation;
 }
 
 static inline Port get_link_variable_port_for_conflict_check(Port left_port, Port right_port) {
@@ -714,6 +724,7 @@ static inline InteractionResult apply_lane_interaction_rule(
       return apply_lane_erase_rule(node_memory, produced_active_pairs, left_port, right_port);
     case INTERACTION_RULE_ANNIHILATE:
       return apply_lane_annihilate_rule(node_memory, produced_active_pairs, left_port, right_port);
+#if ENABLE_RULE_COMMUTE
     case INTERACTION_RULE_COMMUTE:
       return apply_lane_commute_rule(
           node_memory,
@@ -723,6 +734,7 @@ static inline InteractionResult apply_lane_interaction_rule(
           allocated_variable_count,
           left_port,
           right_port);
+#endif
 #if ENABLE_RULE_OPERATE
     case INTERACTION_RULE_OPERATE:
       return apply_lane_operate_rule(
