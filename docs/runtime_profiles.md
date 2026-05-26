@@ -610,3 +610,27 @@ pipelined scheduler loop. Vitis still forms the same `local_status_code` phi,
 and the extra captured-pair registers increase FF usage. Future profiles should
 target the scheduler status/control boundary itself, not another placement of
 the same validation logic.
+
+Try52 tests a simple module boundary for selected `ERASE`:
+
+```text
+hls_config_try52_direct_erase_noinline_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_DIRECT_ERASE_NOINLINE` on top of the try49 direct
+selected `ERASE` base. The helper body is unchanged, but
+`execute_selected_erase_direct` receives `#pragma HLS INLINE off`, forcing HLS
+to synthesize it as a separate module.
+
+Full CSIM and FPGA-small CSIM passed. Focused CSYNTH completed at `3821 LUT`,
+`1555 FF`, `0 DSP`, `0 BRAM`, scheduler `II=3`, and about `-0.295 ns` slack
+with estimated Fmax `131.66 MHz`. The outlined helper itself reaches latency
+`1`, interval `1`, and is reported at about `270 LUT` and `136 FF`.
+
+This is a useful rejected profile. It improves the clock estimate compared with
+the `118.28 MHz` try49-try51 plateau, but worsens the scheduler initiation
+interval from `1` to `3`. The HLS log reports both a node-memory carried
+dependence around the helper call and a limited-resource call scheduling issue.
+Future profiles should use an explicit request/response service phase or a
+larger scheduler function split instead of placing noinline calls directly in
+the pipelined scheduler loop.
