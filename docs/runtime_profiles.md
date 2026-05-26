@@ -571,3 +571,22 @@ and slightly below try41, but timing is unchanged because the critical path
 still runs through selected `ERASE` node-address validation and
 `local_status_code` writeback. Future profiles should separate rare invalid
 status from the common selected-ERASE success datapath.
+
+Try50 tests that status separation narrowly:
+
+```text
+hls_config_try50_direct_erase_pending_status_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_DIRECT_ERASE_PENDING_STATUS` on top of try49.
+The profile keeps direct selected `ERASE` for the common successful case and
+routes only invalid node-address status through a small pending-status service.
+Full CSIM and FPGA-small CSIM passed. Focused CSYNTH completed at `3659 LUT`,
+`1165 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and about `-1.155` slack with
+estimated Fmax `118.28 MHz`.
+
+This is negative timing evidence. It improves LUT by only `2` versus try49,
+and the critical path still ends in `local_status_code`. The lesson for future
+profiles is that the shared scheduler status phi must be structurally removed
+from the selected `ERASE` fast path; helper-local pending flags alone are not
+enough for HLS to separate the hardware.

@@ -2519,3 +2519,51 @@ separate rare invalid-node status from the common success path. The hardware
 question is whether `local_status_code` must be produced in the same cycle as
 selected `ERASE` output formation, or whether a narrower pending-status path
 can remove it from the hot scheduler critical path.
+
+## Try50 Direct ERASE Pending Status
+
+Try50 tests the try49 recommendation under:
+
+```text
+ENABLE_PARALLEL_DIRECT_ERASE_PENDING_STATUS
+```
+
+The implementation keeps the direct selected `ERASE` success datapath from
+try49. Only the rare invalid node-address case is changed: instead of writing
+`local_status_code` directly inside `execute_selected_erase_direct`, the helper
+records a tiny pending status flag/code and routes the scheduler through
+`PARALLEL_SERVICE_STATUS`.
+
+Full-profile CSIM and FPGA-small CSIM passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try41 staged `LINK` decide/write split | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+| Try49 direct selected `ERASE` | 3661 | 1165 | 0 | 0 | 1 | `~ -1.16` | `118.28 MHz` |
+| Try50 direct `ERASE` pending status | 3659 | 1165 | 0 | 0 | 1 | `~ -1.155` | `118.28 MHz` |
+
+This is a negative timing result with a negligible area improvement. The
+pending-status flag reduced LUT by `2`, but HLS still reports the selected
+ERASE status path as critical:
+
+```text
+selected produced-pair left port
+erasure-port / node-address selection
+node-address range check
+local_status_code phi/store
+```
+
+For diploma wording:
+
+```text
+Try50 shows that moving an error code into a narrow pending-status register is
+not sufficient if the scheduler still exposes a shared status phi in the same
+pipelined tick. The hardware bottleneck is the service-level status-selection
+structure, not only the helper-local assignment.
+```
+
+The next experiment should avoid more pending-status variants. A meaningfully
+different approach is to move selected-rule address validation earlier, before
+the selected execution tick, or to split success emission and status commit
+into separate scheduler states so HLS cannot merge them back into a single
+hot-loop `local_status_code` selection path.
