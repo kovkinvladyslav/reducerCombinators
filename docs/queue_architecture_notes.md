@@ -60,7 +60,7 @@ For the diploma, try2 is useful negative evidence. It shows that the queue issue
 is not only caused by `LINK`, `ERASE`, and `ANNIHILATE`; it is a structural
 property of the reducer loop and the shared `redex_memory` service.
 
-## Next Queue Architecture
+## Try3 Single-Owner Queue Commit
 
 Try3 avoided partial local buffering and routed all single-lane produced active
 pairs through one commit service when `ENABLE_PRODUCED_PAIR_BUFFER=1`. That
@@ -104,3 +104,57 @@ phase splitting, for example a small reducer control FSM with separate pop,
 execute, staged-service, and commit states. That would keep the single-owner
 queue write path while shortening the combinational path that now limits
 timing.
+
+## Try4 Phase-Specialized Control
+
+Try4 kept try3's single-owner queue commit service and refactored
+`reducer_core.cpp` so two service cases are handled before normal dispatch:
+
+- pending produced-pair buffer flush,
+- active staged `CALL` service.
+
+The intention was to reduce the mux/control pressure around
+`interaction_completed`, `executed_steps`, and status outputs without changing
+queue ownership or interaction semantics.
+
+Try4 passed full-profile CSIM and FPGA-small produced-buffer CSIM. FPGA-small
+synthesis also completed:
+
+| Build | LUT | FF | DSP | Main loop II | Main limiter |
+| --- | ---: | ---: | ---: | ---: | --- |
+| FPGA-small single commit try3 | 8323 | 3277 | 2 | 3 | resource/clock limitation |
+| FPGA-small phase control try4 | 8306 | 3250 | 2 | 3 | resource/clock limitation |
+
+The result is neutral-to-negative. Resource use moved slightly down, but final
+II and timing did not improve: the report still shows `II=3`, resource
+limitation, and `-8.89` slack. This means HLS still treats the reducer as one
+large pipelined control region. Early `continue` branches are not an
+architecture boundary from the scheduler's point of view.
+
+## Validation Profile Policy
+
+Full-profile CSIM remains the semantic guard for these queue experiments. It
+proves that the complete interaction-combinator reducer still behaves correctly
+after control-flow changes.
+
+FPGA-small CSYNTH is the primary architecture measurement. Full-profile CSYNTH
+is a reference experiment, not a requirement for every queue try, because try1
+already showed full-profile synthesis is dominated by the complete numeric
+subsystem: full staged/no-statistics synthesis completed at `48457 LUT`,
+`32215 FF`, `49 DSP`, and `II=67`.
+
+## Next Queue Architecture
+
+The next queue attempt should use a phase boundary that is explicit to HLS, not
+only expressed as branches inside one pipelined loop. Candidate directions:
+
+- an explicit reducer service FSM with states for commit, staged `CALL`, pop,
+  execute, and completion accounting;
+- separate non-inlined helper regions for queue commit and staged `CALL`
+  service;
+- a two-loop or dataflow-shaped experiment where queue pop and queue push are
+  no longer scheduled as peer operations in one monolithic pipeline.
+
+The next try should be judged by whether it changes the current limiter from
+the broad resource/timing path and improves either slack or final II without
+undoing try3's single-owner queue writeback.

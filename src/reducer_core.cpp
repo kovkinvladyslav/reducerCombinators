@@ -1,5 +1,88 @@
 #include "reducer_core.hpp"
 
+static inline void record_reducer_failure_status(
+    ReducerStatistics* reducer_statistics,
+    InteractionResult interaction_result,
+    ap_uint<32>* local_status_code) {
+  if (interaction_result.queue_overflow) {
+#if ENABLE_REDUCER_STATISTICS
+    reducer_statistics->redex_queue_overflow_count =
+        reducer_statistics->redex_queue_overflow_count + 1;
+#endif
+    *local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
+  } else if (interaction_result.node_memory_exhausted) {
+#if ENABLE_REDUCER_STATISTICS
+    reducer_statistics->node_allocation_failure_count =
+        reducer_statistics->node_allocation_failure_count + 1;
+#endif
+    *local_status_code = REDUCER_STATUS_NODE_MEMORY_OVERFLOW;
+  } else if (interaction_result.variable_memory_exhausted) {
+#if ENABLE_REDUCER_STATISTICS
+    reducer_statistics->variable_memory_overflow_count =
+        reducer_statistics->variable_memory_overflow_count + 1;
+#endif
+    *local_status_code = REDUCER_STATUS_VARIABLE_MEMORY_OVERFLOW;
+  } else if (interaction_result.invalid_port_tag) {
+#if ENABLE_REDUCER_STATISTICS
+    reducer_statistics->unsupported_interaction_count =
+        reducer_statistics->unsupported_interaction_count + 1;
+#endif
+    *local_status_code = REDUCER_STATUS_INVALID_PORT_TAG;
+  } else if (interaction_result.invalid_numeric_operation) {
+#if ENABLE_REDUCER_STATISTICS
+    reducer_statistics->invalid_numeric_operation_count =
+        reducer_statistics->invalid_numeric_operation_count + 1;
+#endif
+    *local_status_code = REDUCER_STATUS_INVALID_NUMERIC_OPERATION;
+  } else if (interaction_result.numeric_division_by_zero) {
+#if ENABLE_REDUCER_STATISTICS
+    reducer_statistics->numeric_division_by_zero_count =
+        reducer_statistics->numeric_division_by_zero_count + 1;
+#endif
+    *local_status_code = REDUCER_STATUS_NUMERIC_DIVISION_BY_ZERO;
+  } else if (interaction_result.unsupported_numeric_type) {
+#if ENABLE_REDUCER_STATISTICS
+    reducer_statistics->invalid_numeric_operation_count =
+        reducer_statistics->invalid_numeric_operation_count + 1;
+#endif
+    *local_status_code = REDUCER_STATUS_UNSUPPORTED_NUMERIC_TYPE;
+  } else if (interaction_result.unknown_reference) {
+#if ENABLE_REDUCER_STATISTICS
+    reducer_statistics->unknown_reference_count =
+        reducer_statistics->unknown_reference_count + 1;
+#endif
+    *local_status_code = REDUCER_STATUS_UNKNOWN_REFERENCE;
+  } else if (interaction_result.book_node_overflow) {
+#if ENABLE_REDUCER_STATISTICS
+    reducer_statistics->node_allocation_failure_count =
+        reducer_statistics->node_allocation_failure_count + 1;
+#endif
+    *local_status_code = REDUCER_STATUS_BOOK_NODE_OVERFLOW;
+  } else if (interaction_result.book_redex_overflow) {
+#if ENABLE_REDUCER_STATISTICS
+    reducer_statistics->redex_queue_overflow_count =
+        reducer_statistics->redex_queue_overflow_count + 1;
+#endif
+    *local_status_code = REDUCER_STATUS_BOOK_REDEX_OVERFLOW;
+  } else {
+#if ENABLE_REDUCER_STATISTICS
+    reducer_statistics->unsupported_interaction_count =
+        reducer_statistics->unsupported_interaction_count + 1;
+#endif
+    *local_status_code = REDUCER_STATUS_UNSUPPORTED_INTERACTION;
+  }
+}
+
+static inline void record_reducer_completed_interaction(
+    ReducerStatistics* reducer_statistics,
+    InteractionRuleKind interaction_rule_kind,
+    ap_uint<32>* executed_steps) {
+#if ENABLE_REDUCER_STATISTICS
+  count_executed_rule(reducer_statistics, interaction_rule_kind);
+#endif
+  *executed_steps = *executed_steps + 1;
+}
+
 extern "C" void reducer_core(
     PackedNode node_memory[MAXIMUM_NODE_COUNT],
     Port substitution_memory[MAXIMUM_VARIABLE_COUNT],
@@ -75,17 +158,27 @@ extern "C" void reducer_core(
               &redex_queue_count_value)) {
         interaction_result.success = 0;
         interaction_result.queue_overflow = 1;
+        record_reducer_failure_status(
+            reducer_statistics,
+            interaction_result,
+            &local_status_code);
         produced_pair_buffer_active = 0;
+        break;
       } else if (produced_pair_flush_index >= produced_active_pairs.produced_pair_count) {
         produced_pair_buffer_active = 0;
         initialize_produced_active_pairs(&produced_active_pairs);
 #if ENABLE_STAGED_CALL
         if (buffered_rule_kind == INTERACTION_RULE_CALL && call_state.active) {
-          interaction_completed = 0;
-        } else
+          continue;
+        }
 #endif
-        interaction_completed = 1;
+        record_reducer_completed_interaction(
+            reducer_statistics,
+            buffered_rule_kind,
+            &executed_steps);
+        continue;
       }
+      continue;
     } else
 #endif
 #if ENABLE_STAGED_CALL
@@ -107,8 +200,23 @@ extern "C" void reducer_core(
         produced_pair_buffer_active = 1;
         produced_pair_flush_index = 0;
         buffered_rule_kind = interaction_rule_kind;
+        continue;
       }
-      interaction_completed = !call_state.active && !produced_pair_buffer_active;
+      if (!interaction_result.success) {
+        record_reducer_failure_status(
+            reducer_statistics,
+            interaction_result,
+            &local_status_code);
+        break;
+      }
+      if (call_state.active) {
+        continue;
+      }
+      record_reducer_completed_interaction(
+          reducer_statistics,
+          interaction_rule_kind,
+          &executed_steps);
+      continue;
 #else
       interaction_result = step_staged_call(
           node_memory,
@@ -399,80 +507,17 @@ extern "C" void reducer_core(
     }
 
     if (!interaction_result.success) {
-      if (interaction_result.queue_overflow) {
-#if ENABLE_REDUCER_STATISTICS
-        reducer_statistics->redex_queue_overflow_count =
-            reducer_statistics->redex_queue_overflow_count + 1;
-#endif
-        local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
-      } else if (interaction_result.node_memory_exhausted) {
-#if ENABLE_REDUCER_STATISTICS
-        reducer_statistics->node_allocation_failure_count =
-            reducer_statistics->node_allocation_failure_count + 1;
-#endif
-        local_status_code = REDUCER_STATUS_NODE_MEMORY_OVERFLOW;
-      } else if (interaction_result.variable_memory_exhausted) {
-#if ENABLE_REDUCER_STATISTICS
-        reducer_statistics->variable_memory_overflow_count =
-            reducer_statistics->variable_memory_overflow_count + 1;
-#endif
-        local_status_code = REDUCER_STATUS_VARIABLE_MEMORY_OVERFLOW;
-      } else if (interaction_result.invalid_port_tag) {
-#if ENABLE_REDUCER_STATISTICS
-        reducer_statistics->unsupported_interaction_count =
-            reducer_statistics->unsupported_interaction_count + 1;
-#endif
-        local_status_code = REDUCER_STATUS_INVALID_PORT_TAG;
-      } else if (interaction_result.invalid_numeric_operation) {
-#if ENABLE_REDUCER_STATISTICS
-        reducer_statistics->invalid_numeric_operation_count =
-            reducer_statistics->invalid_numeric_operation_count + 1;
-#endif
-        local_status_code = REDUCER_STATUS_INVALID_NUMERIC_OPERATION;
-      } else if (interaction_result.numeric_division_by_zero) {
-#if ENABLE_REDUCER_STATISTICS
-        reducer_statistics->numeric_division_by_zero_count =
-            reducer_statistics->numeric_division_by_zero_count + 1;
-#endif
-        local_status_code = REDUCER_STATUS_NUMERIC_DIVISION_BY_ZERO;
-      } else if (interaction_result.unsupported_numeric_type) {
-#if ENABLE_REDUCER_STATISTICS
-        reducer_statistics->invalid_numeric_operation_count =
-            reducer_statistics->invalid_numeric_operation_count + 1;
-#endif
-        local_status_code = REDUCER_STATUS_UNSUPPORTED_NUMERIC_TYPE;
-      } else if (interaction_result.unknown_reference) {
-#if ENABLE_REDUCER_STATISTICS
-        reducer_statistics->unknown_reference_count =
-            reducer_statistics->unknown_reference_count + 1;
-#endif
-        local_status_code = REDUCER_STATUS_UNKNOWN_REFERENCE;
-      } else if (interaction_result.book_node_overflow) {
-#if ENABLE_REDUCER_STATISTICS
-        reducer_statistics->node_allocation_failure_count =
-            reducer_statistics->node_allocation_failure_count + 1;
-#endif
-        local_status_code = REDUCER_STATUS_BOOK_NODE_OVERFLOW;
-      } else if (interaction_result.book_redex_overflow) {
-#if ENABLE_REDUCER_STATISTICS
-        reducer_statistics->redex_queue_overflow_count =
-            reducer_statistics->redex_queue_overflow_count + 1;
-#endif
-        local_status_code = REDUCER_STATUS_BOOK_REDEX_OVERFLOW;
-      } else {
-#if ENABLE_REDUCER_STATISTICS
-        reducer_statistics->unsupported_interaction_count =
-            reducer_statistics->unsupported_interaction_count + 1;
-#endif
-        local_status_code = REDUCER_STATUS_UNSUPPORTED_INTERACTION;
-      }
+      record_reducer_failure_status(
+          reducer_statistics,
+          interaction_result,
+          &local_status_code);
       break;
     }
 
-#if ENABLE_REDUCER_STATISTICS
-    count_executed_rule(reducer_statistics, interaction_rule_kind);
-#endif
-    executed_steps = executed_steps + 1;
+    record_reducer_completed_interaction(
+        reducer_statistics,
+        interaction_rule_kind,
+        &executed_steps);
   }
 
   if (local_status_code == REDUCER_STATUS_SUCCESS &&

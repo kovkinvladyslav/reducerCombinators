@@ -46,6 +46,12 @@ reconstructed later.
 - Record the last visible Vitis log line if synthesis freezes.
 - Record generated report paths and resource numbers when reports exist.
 - Explain why the next try must be different.
+- Treat full-profile CSIM as the required semantic correctness guard for normal
+  single-lane reducer changes.
+- Treat FPGA-small CSYNTH as the primary architecture measurement until full
+  numerics are deliberately targeted again. Full-profile CSYNTH is a reference
+  measurement to run when the change touches full-only behavior or when a new
+  milestone needs comparison against the complete semantic profile.
 
 ## Diploma Use
 
@@ -57,4 +63,3 @@ should clearly distinguish:
 - failed synthesis approaches,
 - planned future work,
 - measured FPGA evidence.
-
