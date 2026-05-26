@@ -1562,3 +1562,65 @@ append produced pair and update completion/status
 
 That would directly target the current reported path instead of adding more
 queue-selection or command-buffer state.
+
+## Try32 Split Staged LINK Writeback
+
+Try32 implements the try31 recommendation under:
+
+```text
+ENABLE_PARALLEL_SPLIT_LINK_WRITEBACK
+```
+
+It keeps the try31 selected-command capture/classify split and adds one more
+stage to selected-command `LINK`:
+
+```text
+begin selected LINK
+read previous substitution binding
+write or clear substitution binding
+append produced pair and update completion/status
+commit produced pair
+```
+
+This is deliberately not a new scheduler shape. It adds only one emit-pair bit
+and one `PARALLEL_LINK_STAGE_APPEND_RESULT` stage, so the experiment measures
+whether the final `LINK` write/result tick was still too wide.
+
+Full-profile CSIM and FPGA-small CSIM both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try30 selected command with staged `LINK` | 4770 | 2677 | 0 | 0 | 1 | `-7.29` | `68.57 MHz` |
+| Try31 split classify | 4602 | 2667 | 0 | 0 | 1 | `-4.35` | `85.82 MHz` |
+| Try32 split `LINK` writeback | 4594 | 2669 | 0 | 0 | 1 | `-3.19` | `95.28 MHz` |
+
+The result is again not an accepted endpoint, because the 10 ns target with
+2.70 ns uncertainty is still missed. It is nevertheless strong architectural
+evidence. The design keeps `II=1`, uses no DSP or BRAM in the focused local
+queue profile, and improves timing without increasing LUTs. The reported
+critical path moves away from the staged `LINK` writeback body and into shared
+control/status logic: `global_queue_count_value`, redex-queue empty/refill
+selection, and the shared `local_status_code` store.
+
+For diploma wording:
+
+```text
+Try32 shows that incremental staging can move the limiter out of a specific
+interaction rule. Once LINK read/write and produced-pair emission are separated,
+the remaining critical path is not LINK arithmetic or substitution memory, but
+shared scheduler status/control muxing. This motivates a status-commit service
+or narrower status protocol rather than deeper rule-specific staging.
+```
+
+The next experiment should keep the try31/try32 boundaries and target the
+shared status path. A small pending-status register/service would test whether
+`local_status_code` can be removed from every service branch:
+
+```text
+service phase writes pending_status_valid/status_code
+status service commits pending error once
+success cases avoid driving the global status mux
+```
+
+This would be a cleaner FPGA architecture than adding more command slots or
+duplicating rule datapaths.

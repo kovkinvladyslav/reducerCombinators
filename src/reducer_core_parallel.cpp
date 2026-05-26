@@ -799,6 +799,9 @@ extern "C" void reducer_core_parallel(
   PortValue selected_command_link_variable_index = 0;
   Port selected_command_link_other_port = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
   Port selected_command_link_previous_port = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+#if ENABLE_PARALLEL_SPLIT_LINK_WRITEBACK
+  ap_uint<1> selected_command_link_emit_pair = 0;
+#endif
 #endif
 #endif
 #if ENABLE_PARALLEL_TWO_COMMAND_BUFFER
@@ -1114,6 +1117,9 @@ extern "C" void reducer_core_parallel(
 #if ENABLE_PARALLEL_STAGED_LINK
       selected_command_link_active = 0;
       selected_command_link_stage = PARALLEL_LINK_STAGE_IDLE;
+#if ENABLE_PARALLEL_SPLIT_LINK_WRITEBACK
+      selected_command_link_emit_pair = 0;
+#endif
 #endif
 
       for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
@@ -1393,8 +1399,36 @@ extern "C" void reducer_core_parallel(
                 substitution_memory[selected_command_link_variable_index];
             selected_command_link_stage = PARALLEL_LINK_STAGE_WRITE_RESULT;
             parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+#if ENABLE_PARALLEL_SPLIT_LINK_WRITEBACK
+          } else if (selected_command_link_stage == PARALLEL_LINK_STAGE_WRITE_RESULT) {
+            Port unbound_marker = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+            if (selected_command_link_previous_port == unbound_marker) {
+              substitution_memory[selected_command_link_variable_index] =
+                  selected_command_link_other_port;
+              selected_command_link_emit_pair = 0;
+            } else {
+              substitution_memory[selected_command_link_variable_index] = unbound_marker;
+              selected_command_link_emit_pair = 1;
+            }
+            selected_command_link_stage = PARALLEL_LINK_STAGE_APPEND_RESULT;
+            parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+#endif
           } else {
             Port unbound_marker = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+#if ENABLE_PARALLEL_SPLIT_LINK_WRITEBACK
+            if (selected_command_link_emit_pair) {
+              if (!append_produced_active_pair(
+                      &selected_command_produced_active_pairs,
+                      selected_command_link_previous_port,
+                      selected_command_link_other_port)) {
+#if ENABLE_REDUCER_STATISTICS
+                reducer_statistics->redex_queue_overflow_count =
+                    reducer_statistics->redex_queue_overflow_count + 1;
+#endif
+                local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
+              }
+            }
+#else
             if (selected_command_link_previous_port == unbound_marker) {
               substitution_memory[selected_command_link_variable_index] =
                   selected_command_link_other_port;
@@ -1411,9 +1445,13 @@ extern "C" void reducer_core_parallel(
                 local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
               }
             }
+#endif
 
             selected_command_link_active = 0;
             selected_command_link_stage = PARALLEL_LINK_STAGE_IDLE;
+#if ENABLE_PARALLEL_SPLIT_LINK_WRITEBACK
+            selected_command_link_emit_pair = 0;
+#endif
             if (local_status_code == REDUCER_STATUS_SUCCESS) {
 #if ENABLE_REDUCER_STATISTICS
               count_executed_rule(reducer_statistics, selected_command_rule_kind);
