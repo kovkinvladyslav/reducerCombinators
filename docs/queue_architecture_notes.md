@@ -1336,3 +1336,50 @@ The next parallel attempt should preserve try26's single-command execute/commit
 datapath and add a waiting command slot or tiny issue FIFO. That would let
 SELECT observe two independent lanes without forcing HLS to duplicate the rule
 execution and produced-pair commit bodies in the same scheduler phase.
+
+## Try28 Waiting Command Slot
+
+Try28 follows the try27 conclusion with:
+
+```text
+ENABLE_PARALLEL_WAITING_COMMAND
+```
+
+The architecture keeps only one active execute/commit command. SELECT may also
+capture a second independent lane as waiting metadata, but that waiting command
+is not executed until the active command is fully committed and promoted.
+
+This directly tests whether the try27 problem was only duplicated datapaths.
+The design-size report confirms the intended structural change:
+
+- `execute_lane_active_pair_without_queue_commit` appears once, not twice;
+- `commit_one_phased_produced_pair` appears once, not twice;
+- only the active command owns a partitioned produced-pair buffer.
+
+Full-profile CSIM and FPGA-small CSIM both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try26 single selected command | 3170 | 1503 | 0 | 0 | 2 | `+0.12` | `139.31 MHz` |
+| Try27 two-command buffer | 5700 | 1924 | 0 | 0 | 2 | `-2.76` | `99.36 MHz` |
+| Try28 waiting command slot | 3790 | 1787 | 0 | 0 | 2 | `-5.73` | `76.74 MHz` |
+
+This is another useful negative result. Try28 fixes try27's obvious duplicated
+execute/commit datapath cost, but the command-control path becomes worse:
+active validity, execution state, waiting validity, promotion, and phase
+selection all feed the same parent scheduler pipeline. The area lands between
+try26 and try27, but timing is the worst of the three.
+
+For diploma wording:
+
+```text
+Try27 and try28 separate two scaling costs. Duplicating lane command datapaths
+is too expensive, and adding waiting-command control inside the same hot
+scheduler pipeline is also timing-hostile. The measured baseline for continued
+parallel work is therefore try26's single selected-command boundary.
+```
+
+The next parallel step should not keep adding command state inside the same
+pipeline. Better options are to return to try26 and either reduce SELECT/control
+logic, or reintroduce `LINK` with a staged substitution service while preserving
+the single-command execute/commit boundary.
