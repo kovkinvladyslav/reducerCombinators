@@ -85,7 +85,7 @@ static inline void defer_parallel_status(
 }
 #endif
 
-#if ENABLE_PARALLEL_SELECTED_COMPACT_CLASSIFY
+#if ENABLE_PARALLEL_SELECTED_COMPACT_CLASSIFY || ENABLE_PARALLEL_COMPACT_CLASSIFY_SERVICE
 static inline InteractionRuleKind get_selected_compact_rule_kind(
     Port left_port,
     Port right_port) {
@@ -1603,9 +1603,15 @@ extern "C" void reducer_core_parallel(
 #else
       if (selected_command_valid && local_status_code == REDUCER_STATUS_SUCCESS) {
 #endif
+#if ENABLE_PARALLEL_COMPACT_CLASSIFY_SERVICE
+        selected_command_rule_kind = get_selected_compact_rule_kind(
+            selected_command_active_pair.left_port,
+            selected_command_active_pair.right_port);
+#else
         selected_command_rule_kind = get_interaction_rule_kind(
             selected_command_active_pair.left_port,
             selected_command_active_pair.right_port);
+#endif
 #if ENABLE_PARALLEL_STAGED_NON_LINK_VALIDATION && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
         if (selected_command_rule_kind == INTERACTION_RULE_ERASE ||
             selected_command_rule_kind == INTERACTION_RULE_ANNIHILATE) {

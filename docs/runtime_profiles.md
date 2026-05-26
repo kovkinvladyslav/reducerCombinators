@@ -481,3 +481,21 @@ it answers a different question: whether the complete semantic profile with
 the full numeric subsystem and full runtime paths remains synthesizable. Running
 full CSYNTH for every focused scheduler try would mostly remeasure the known
 full-profile datapath cost instead of isolating the scheduler change.
+
+Try45 adds compact classification inside the CLASSIFY service instead of
+SELECT:
+
+```text
+hls_config_try45_compact_classify_service_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_COMPACT_CLASSIFY_SERVICE`, keeping the
+SELECT-to-CLASSIFY boundary from try41 while replacing the generic rule decoder
+inside CLASSIFY with the focused compact decoder. Full CSIM and FPGA-small CSIM
+passed. Focused CSYNTH completed at `3707 LUT`, `1150 FF`, `0 DSP`, `0 BRAM`,
+scheduler `II=1`, and `-1.16` slack with estimated Fmax `118.28 MHz`.
+
+This matches try41 exactly. It is useful negative evidence: the compact decoder
+is safe when placed in CLASSIFY, but selected-command classification is no
+longer the timing limiter. The next focused profile should target selected
+non-link node/status execution instead.
