@@ -131,6 +131,8 @@ The project currently provides:
 | `hls_config_synth_full_compact_service_phase_no_f24_rem_nostats.cfg` | Full-profile synthesis checkpoint with compact service phase, statistics disabled, and F24 remainder disabled |
 | `hls_config_full_compact_service_phase_shared_int_div_rem_no_f24_rem.cfg` | Full-profile CSIM checkpoint with compact service phase, F24 remainder disabled, and shared integer div/rem operand selection enabled |
 | `hls_config_synth_full_compact_service_phase_shared_int_div_rem_no_f24_rem_nostats.cfg` | Full-profile synthesis checkpoint with statistics disabled, F24 remainder disabled, and shared integer div/rem operand selection enabled |
+| `hls_config_full_compact_service_phase_f24_addsub_fabric_shared_int_no_f24_rem.cfg` | Full-profile CSIM checkpoint with F24 remainder disabled, shared integer div/rem, and F24 add/sub bound to fabric |
+| `hls_config_synth_full_compact_service_phase_f24_addsub_fabric_shared_int_no_f24_rem_nostats.cfg` | Full-profile synthesis checkpoint with statistics disabled, F24 remainder disabled, shared integer div/rem, and F24 add/sub bound to fabric |
 | `hls_config_synth_fpga_small_nostats.cfg` | FPGA-small synthesis probe with statistics disabled |
 | `hls_config_synth_fpga_small_nostats_nocall.cfg` | FPGA-small synthesis probe with statistics and `CALL` disabled |
 | `hls_config_synth_fpga_small_staged_call.cfg` | FPGA-small synthesis probe with staged single-lane `CALL` enabled |
@@ -250,6 +252,15 @@ duplicating those modules for flipped and non-flipped operations. Compared with
 try13, this saved `684 LUT` and `937 FF`, but increased DSP use by `2` because
 HLS bound F24 add/sub differently in this variant. This makes try14 an optional
 LUT/FF-saving policy, not a default replacement for the try13 resource profile.
+
+Try15 resolves that DSP tradeoff with an explicit HLS binding policy. With
+`ENABLE_F24_ADD_SUB_FABRIC_BIND=1` added to the try14 policy set, synthesis
+completed at `13484 LUT`, `6900 FF`, `7 DSP`, and main-loop `II=1`. The report
+shows `faddfsub_32ns_32ns_32_6_no_dsp_1` inside
+`apply_numeric_operation`, so F24 add/sub stays enabled but no longer consumes
+the extra two DSPs. Relative to try13, try15 saves `533 LUT` and `1002 FF`
+without increasing DSP. Relative to try14, it spends `151 LUT` to recover
+`2 DSP` and save `65 FF`.
 
 ## Suggested Diploma Wording
 

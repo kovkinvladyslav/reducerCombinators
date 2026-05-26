@@ -270,6 +270,10 @@ static inline Port apply_numeric_operation(
 #if ENABLE_NUMERIC_F24
   if (active_numeric_tag == NUMERIC_TAG_F24) {
     float result_f24 = 0.0f;
+#if ENABLE_F24_ADD_SUB_FABRIC_BIND
+#pragma HLS BIND_OP variable=result_f24 op=fadd impl=fabric
+#pragma HLS BIND_OP variable=result_f24 op=fsub impl=fabric
+#endif
     switch (operation_tag) {
       case NUMERIC_TAG_OPERATION_ADD: result_f24 = captured_operand_f24 + active_operand_f24; break;
       case NUMERIC_TAG_OPERATION_SUBTRACT: result_f24 = captured_operand_f24 - active_operand_f24; break;

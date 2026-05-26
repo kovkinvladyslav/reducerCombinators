@@ -601,3 +601,63 @@ improvement:
 - choose try13 when DSP is the tightest resource;
 - choose try14 when LUT/FF pressure is more important and the extra two DSPs
   are acceptable.
+
+## Try15 Fabric-Bound F24 Add/Sub With Shared Integer Div/Rem
+
+Try15 follows directly from the try14 tradeoff. It keeps the same semantic
+numeric subset as try14:
+
+```text
+ENABLE_NUMERIC_F24_REMAINDER=0
+ENABLE_SHARED_INTEGER_DIV_REM=1
+```
+
+Then it adds an HLS binding policy:
+
+```text
+ENABLE_F24_ADD_SUB_FABRIC_BIND=1
+```
+
+Under this gate, `apply_numeric_operation` applies `BIND_OP` pragmas to the
+F24 result variable so F24 add/sub is implemented in fabric. The purpose is not
+to remove F24 add/sub from the full profile. The purpose is to decide where its
+hardware cost should live.
+
+Validation:
+
+- host syntax passed;
+- host executable passed all tests with `Overall Result: PASS`;
+- Vitis CSIM compiled `csim.exe`, but the local Windows environment blocked or
+  failed executable launch, so this is recorded as a tooling/policy issue;
+- full-profile no-statistics CSYNTH completed with `csyn_t15`.
+
+Top-level comparison:
+
+| Build | LUT | FF | DSP | Main loop II | Interpretation |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Try13 full no F24 remainder | 14017 | 7902 | 7 | 1 | no F24 `fmod`, duplicated integer div/rem |
+| Try14 shared integer div/rem | 13333 | 6965 | 9 | 1 | integer div/rem shared, F24 add/sub uses DSP |
+| Try15 shared int + F24 add/sub fabric | 13484 | 6900 | 7 | 1 | integer div/rem shared, F24 add/sub uses fabric |
+
+Numeric-helper comparison:
+
+| Build | Numeric LUT | Numeric FF | Numeric DSP |
+| --- | ---: | ---: | ---: |
+| Try13 full no F24 remainder | 5131 | 3423 | 5 |
+| Try14 shared integer div/rem | 4562 | 2458 | 7 |
+| Try15 shared int + F24 add/sub fabric | 4713 | 2393 | 5 |
+
+The try15 report confirms:
+
+- `faddfsub_32ns_32ns_32_6_no_dsp_1` is generated for
+  `apply_numeric_operation`;
+- the `BIND_OP` pragmas are listed in the report;
+- integer div/rem sharing remains active with one signed divider, one signed
+  remainder unit, one unsigned divider, and one unsigned remainder unit;
+- main-loop `II=1` is preserved.
+
+This is the best current full-profile no-F24-rem synthesis reference when DSP
+must not increase over try13. It also gives a useful diploma lesson: full
+numeric support is not a binary "enabled versus disabled" question. HLS binding
+policy can move the cost of complete operations between DSP and LUT/FF while
+preserving interaction-combinator semantics.
