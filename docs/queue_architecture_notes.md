@@ -62,8 +62,33 @@ property of the reducer loop and the shared `redex_memory` service.
 
 ## Next Queue Architecture
 
-The next try should avoid partial local buffering and instead split queue access
-into explicit phases:
+Try3 avoided partial local buffering and routed all single-lane produced active
+pairs through one commit service when `ENABLE_PRODUCED_PAIR_BUFFER=1`. That
+includes `COMMUTE`, `SWITCH`, `OPERATE`, safe reference duplication, and staged
+`CALL`.
+
+Try3 completed CSIM and synthesis with:
+
+| Build | LUT | FF | DSP | Main loop II | Main limiter |
+| --- | ---: | ---: | ---: | ---: | --- |
+| FPGA-small staged `CALL` try1 | 7804 | 3254 | 2 | 4 | `redex_memory` dependency |
+| FPGA-small partial buffer try2 | 8197 | 3598 | 2 | 4 | `redex_memory` dependency |
+| FPGA-small single commit try3 | 8323 | 3277 | 2 | 3 | resource/clock limitation |
+
+The important architectural change is that the II violation changed from
+`Memory Dependency` to `Resource Limitation`, and the final II improved from
+`4` to `3`. This shows that single-owner queue writeback is a real scheduling
+improvement, even though the implementation is not final.
+
+The cost is timing. Try3 worsened estimated timing to about `16.195 ns` for the
+10 ns target. The critical path moved into control around staged `CALL`
+capacity/status handling and step completion. That means the next phase should
+not keep widening the same reducer loop; it should split control into smaller
+pipeline regions.
+
+## Next Queue Architecture
+
+The next try should split queue access into explicit phases:
 
 ```text
 flush pending produced pair, if any
@@ -74,6 +99,8 @@ flush pending produced pair, if any
 ```
 
 For a stronger experiment, all rule-produced pairs should pass through one
-commit service, including `COMMUTE`, `SWITCH`, `OPERATE`, and staged `CALL`.
-That would make the queue write path structurally single-owner and set up a
-future banked or ping-pong queue implementation.
+commit service, as try3 demonstrated. The next improvement should therefore be
+phase splitting, for example a small reducer control FSM with separate pop,
+execute, staged-service, and commit states. That would keep the single-owner
+queue write path while shortening the combinational path that now limits
+timing.

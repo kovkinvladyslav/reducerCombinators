@@ -79,6 +79,11 @@ extern "C" void reducer_core(
       } else if (produced_pair_flush_index >= produced_active_pairs.produced_pair_count) {
         produced_pair_buffer_active = 0;
         initialize_produced_active_pairs(&produced_active_pairs);
+#if ENABLE_STAGED_CALL
+        if (buffered_rule_kind == INTERACTION_RULE_CALL && call_state.active) {
+          interaction_completed = 0;
+        } else
+#endif
         interaction_completed = 1;
       }
     } else
@@ -86,6 +91,25 @@ extern "C" void reducer_core(
 #if ENABLE_STAGED_CALL
     if (call_state.active) {
       interaction_rule_kind = INTERACTION_RULE_CALL;
+#if ENABLE_PRODUCED_PAIR_BUFFER
+      initialize_produced_active_pairs(&produced_active_pairs);
+      interaction_result = step_staged_call_buffered(
+          node_memory,
+          substitution_memory,
+          &produced_active_pairs,
+          book_redex_memory,
+          book_node_memory,
+          allocated_node_count,
+          allocated_variable_count,
+          &call_state);
+      if (interaction_result.success &&
+          !produced_active_pairs_are_empty(&produced_active_pairs)) {
+        produced_pair_buffer_active = 1;
+        produced_pair_flush_index = 0;
+        buffered_rule_kind = interaction_rule_kind;
+      }
+      interaction_completed = !call_state.active && !produced_pair_buffer_active;
+#else
       interaction_result = step_staged_call(
           node_memory,
           substitution_memory,
@@ -98,6 +122,7 @@ extern "C" void reducer_core(
           &redex_queue_count_value,
           &call_state);
       interaction_completed = !call_state.active;
+#endif
     } else
 #endif
     {
@@ -202,6 +227,25 @@ extern "C" void reducer_core(
 #endif
           break;
         case INTERACTION_RULE_COMMUTE:
+#if ENABLE_PRODUCED_PAIR_BUFFER
+          initialize_produced_active_pairs(&produced_active_pairs);
+          interaction_result = apply_commute_rule_buffered(
+              node_memory,
+              substitution_memory,
+              &produced_active_pairs,
+              allocated_node_count,
+              allocated_variable_count,
+              redex_queue_count_value,
+              left_port,
+              right_port);
+          if (interaction_result.success &&
+              !produced_active_pairs_are_empty(&produced_active_pairs)) {
+            produced_pair_buffer_active = 1;
+            produced_pair_flush_index = 0;
+            buffered_rule_kind = interaction_rule_kind;
+            interaction_completed = 0;
+          }
+#else
           interaction_result = apply_commute_rule(
               node_memory,
               substitution_memory,
@@ -212,9 +256,29 @@ extern "C" void reducer_core(
               &redex_queue_count_value,
               left_port,
               right_port);
+#endif
           break;
 #if ENABLE_RULE_OPERATE
         case INTERACTION_RULE_OPERATE:
+#if ENABLE_PRODUCED_PAIR_BUFFER
+          initialize_produced_active_pairs(&produced_active_pairs);
+          interaction_result = apply_operate_rule_buffered(
+              node_memory,
+              &produced_active_pairs,
+              allocated_node_count,
+              redex_queue_count_value,
+              left_port,
+              right_port,
+              &local_status_code,
+              reducer_statistics);
+          if (interaction_result.success &&
+              !produced_active_pairs_are_empty(&produced_active_pairs)) {
+            produced_pair_buffer_active = 1;
+            produced_pair_flush_index = 0;
+            buffered_rule_kind = interaction_rule_kind;
+            interaction_completed = 0;
+          }
+#else
           interaction_result = apply_operate_rule(
               node_memory,
               redex_memory,
@@ -225,10 +289,29 @@ extern "C" void reducer_core(
               right_port,
               &local_status_code,
               reducer_statistics);
+#endif
           break;
 #endif
 #if ENABLE_RULE_SWITCH
         case INTERACTION_RULE_SWITCH:
+#if ENABLE_PRODUCED_PAIR_BUFFER
+          initialize_produced_active_pairs(&produced_active_pairs);
+          interaction_result = apply_switch_rule_buffered(
+              node_memory,
+              &produced_active_pairs,
+              allocated_node_count,
+              redex_queue_count_value,
+              left_port,
+              right_port,
+              &local_status_code);
+          if (interaction_result.success &&
+              !produced_active_pairs_are_empty(&produced_active_pairs)) {
+            produced_pair_buffer_active = 1;
+            produced_pair_flush_index = 0;
+            buffered_rule_kind = interaction_rule_kind;
+            interaction_completed = 0;
+          }
+#else
           interaction_result = apply_switch_rule(
               node_memory,
               redex_memory,
@@ -238,11 +321,33 @@ extern "C" void reducer_core(
               left_port,
               right_port,
               &local_status_code);
+#endif
           break;
 #endif
 #if ENABLE_RULE_CALL
         case INTERACTION_RULE_CALL:
 #if ENABLE_STAGED_CALL
+#if ENABLE_PRODUCED_PAIR_BUFFER
+          initialize_produced_active_pairs(&produced_active_pairs);
+          interaction_result = begin_staged_call_buffered(
+              node_memory,
+              &produced_active_pairs,
+              book_definition_headers,
+              book_definition_count,
+              *allocated_node_count,
+              *allocated_variable_count,
+              redex_queue_count_value,
+              left_port,
+              right_port,
+              &call_state);
+          if (interaction_result.success &&
+              !produced_active_pairs_are_empty(&produced_active_pairs)) {
+            produced_pair_buffer_active = 1;
+            produced_pair_flush_index = 0;
+            buffered_rule_kind = interaction_rule_kind;
+          }
+          interaction_completed = !call_state.active && !produced_pair_buffer_active;
+#else
           interaction_result = begin_staged_call(
               node_memory,
               redex_memory,
@@ -256,6 +361,7 @@ extern "C" void reducer_core(
               right_port,
               &call_state);
           interaction_completed = !call_state.active;
+#endif
 #else
           interaction_result = apply_call_rule(
               node_memory,

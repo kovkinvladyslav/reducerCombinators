@@ -148,10 +148,12 @@ small-rule reducer datapath. It should be compared against the no-`CALL` control
 before being described as a final FPGA-small `CALL` implementation.
 
 The produced-buffer configs are an explicit queue-architecture experiment. They
-route selected small-rule outputs through a local produced-pair buffer before
-writing back to `redex_memory`. They are not yet the final queue architecture:
-try2 showed that partial buffering preserves correctness and completes
-synthesis, but does not reduce the main-loop `II=4` queue-memory dependency.
+route rule outputs through a local produced-pair buffer before writing back to
+`redex_memory`. They are not yet the final queue architecture. Try2 showed that
+partial buffering preserves correctness and completes synthesis, but does not
+reduce the main-loop `II=4` queue-memory dependency. Try3 extended the same
+gate to all single-lane produced active pairs and improved final II to `3`, but
+moved the limiter to a long control/timing path.
 
 ## Suggested Diploma Wording
 
