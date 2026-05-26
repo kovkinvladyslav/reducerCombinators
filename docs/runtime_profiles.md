@@ -453,3 +453,31 @@ This is worse than try41/try42. The result shows that staging through the
 existing classify controller increases rule-decode/service-phase fan-in. Future
 profiles should return to try41 and reduce selected-command classification
 control directly instead of adding more work to `PARALLEL_SERVICE_CLASSIFY`.
+
+Try44 adds compact selected-command classification on top of the try41-style
+focused profile:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_staged_link_split_classify_split_writeback_split_refill_singlepop_compact_produced_direct_link_decide_write_split_compact_classify_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_SELECTED_COMPACT_CLASSIFY`, which recognizes only
+the focused rule subset: `LINK`, `VOID`, `ERASE`, `ANNIHILATE`, and
+unsupported pairs. Full CSIM and FPGA-small CSIM passed. Focused CSYNTH
+completed at `3842 LUT`, `1156 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and
+`-7.29` slack with estimated Fmax `68.57 MHz`.
+
+This is worse than try41 and try43. The lesson is that focused FPGA-small
+CSYNTH does not only measure which operations are enabled; it also measures
+where those operations are scheduled. Try44 put compact classification in the
+SELECT service, which also handles lane refill and candidate movement, so the
+critical path coupled queue/refill logic to rule decode. The profile is kept as
+negative evidence, not as the preferred scheduler baseline.
+
+Per-try validation uses full-profile CSIM as the semantic guard and focused
+FPGA-small CSYNTH as the architecture measurement. Full-profile CSYNTH should
+be run at milestone checkpoints or for full-profile-specific changes, because
+it answers a different question: whether the complete semantic profile with
+the full numeric subsystem and full runtime paths remains synthesizable. Running
+full CSYNTH for every focused scheduler try would mostly remeasure the known
+full-profile datapath cost instead of isolating the scheduler change.
