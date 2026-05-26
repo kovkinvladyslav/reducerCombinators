@@ -122,7 +122,7 @@ extern "C" void reducer_core(
   ProducedActivePairs produced_active_pairs;
   initialize_produced_active_pairs(&produced_active_pairs);
   ap_uint<1> produced_pair_buffer_active = 0;
-  ap_uint<32> produced_pair_flush_index = 0;
+  ProducedPairCount produced_pair_flush_index = 0;
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
   ap_uint<1> buffered_rule_is_call = 0;
 #else

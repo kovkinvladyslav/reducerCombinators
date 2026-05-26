@@ -136,6 +136,8 @@ The project currently provides:
 | `hls_config_synth_fpga_small_inline_small_rules.cfg` | FPGA-small synthesis probe with staged `CALL`, produced-pair buffer, deferred completion accounting, and small-rule helper inlining enabled |
 | `hls_config_fpga_small_compact_completion.cfg` | FPGA-small CSIM config with staged `CALL`, produced-pair buffer, deferred completion accounting, small-rule helper inlining, and compact completion metadata enabled |
 | `hls_config_synth_fpga_small_compact_completion.cfg` | FPGA-small synthesis probe with staged `CALL`, produced-pair buffer, deferred completion accounting, small-rule helper inlining, and compact no-statistics completion metadata enabled |
+| `hls_config_fpga_small_narrow_buffer_cursor.cfg` | FPGA-small CSIM config with staged `CALL`, produced-pair buffer, deferred completion accounting, compact completion metadata, and narrowed produced-buffer cursor enabled |
+| `hls_config_synth_fpga_small_narrow_buffer_cursor.cfg` | FPGA-small synthesis probe with staged `CALL`, produced-pair buffer, deferred completion accounting, compact completion metadata, and narrowed produced-buffer cursor enabled |
 | `hls_config_synth_structural_core.cfg` | Structural IC core synthesis probe: `LINK`, `VOID`, `ERASE`, `ANNIHILATE`, `COMMUTE` |
 
 The `nostats` synthesis configs disable `ENABLE_REDUCER_STATISTICS` and
@@ -179,6 +181,12 @@ no-statistics synthesis builds, completion accounting does not need the full
 completed rule kind, so `ENABLE_COMPACT_COMPLETION_STATE` carries only the
 metadata needed for control. Try7 showed this preserves final loop `II=1` and
 reduces area to `9997 LUT` and `4354 FF`.
+
+The narrow-buffer-cursor configs are a produced-buffer state-width experiment on
+top of try7. The produced-pair buffer has a fixed capacity of `17`, so its count
+and flush cursor use the narrow `ProducedPairCount` type instead of 32-bit
+counters. Try8 showed this preserves final loop `II=1` and reduces area to
+`9626 LUT` and `4246 FF`.
 
 ## Suggested Diploma Wording
 

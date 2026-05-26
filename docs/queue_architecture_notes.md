@@ -271,3 +271,35 @@ wide control network. A useful next experiment is to replace that pair with a
 compact produced-buffer cursor, such as a small remaining-count or service-phase
 field, because the maximum number of produced active pairs per interaction is
 bounded at compile time.
+
+## Try8 Narrow Produced-Buffer Cursor
+
+Try8 kept the try7 control structure and narrowed the produced-pair buffer count
+and flush cursor from `ap_uint<32>` to a 5-bit `ProducedPairCount`. This matches
+the actual buffer capacity: `MAXIMUM_PRODUCED_ACTIVE_PAIRS_PER_INTERACTION` is
+`17`, so a 32-bit cursor was unnecessary hardware state.
+
+Try8 passed full-profile CSIM and FPGA-small CSIM. FPGA-small synthesis
+completed:
+
+| Build | LUT | FF | DSP | Main loop II | Timing/slack | Main result |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| FPGA-small compact completion try7 | 9997 | 4354 | 2 | 1 | `-1.21` | compact metadata baseline |
+| FPGA-small narrow buffer cursor try8 | 9626 | 4246 | 2 | 1 | `-1.21` | stronger state-width recovery |
+
+The detailed utilization report confirms that `produced_pair_flush_index` and
+`produced_active_pairs_produced_pair_count` are now 5-bit values. This is a
+direct FPGA cleanup: fewer bits enter the produced-buffer comparisons, address
+selection, and cursor increment logic.
+
+The critical path is unchanged. Vitis still reports
+`produced_pair_buffer_active` feeding the pipeline `targetBlock`, so try8
+recovers area but does not solve the service-selection timing path.
+
+## Next Queue Architecture
+
+The next try should remove or restructure the separate
+`produced_pair_buffer_active` phi itself. A good experiment is to encode the
+produced-buffer service using the remaining count or a compact service phase,
+so buffer activity is derived from one narrow state instead of maintained as a
+separate 1-bit flag with many incoming rule-specific assignments.

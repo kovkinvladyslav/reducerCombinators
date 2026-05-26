@@ -104,7 +104,7 @@ static inline ap_uint<1> append_produced_active_pair(
     return 0;
   }
 
-  ap_uint<32> produced_pair_index = produced_active_pairs->produced_pair_count;
+  ProducedPairCount produced_pair_index = produced_active_pairs->produced_pair_count;
   produced_active_pairs->produced_pairs[produced_pair_index].left_port = left_port;
   produced_active_pairs->produced_pairs[produced_pair_index].right_port = right_port;
   produced_active_pairs->produced_pair_count = produced_active_pairs->produced_pair_count + 1;
@@ -113,7 +113,7 @@ static inline ap_uint<1> append_produced_active_pair(
 
 static inline ap_uint<1> flush_one_produced_active_pair(
     ProducedActivePairs* produced_active_pairs,
-    ap_uint<32>* produced_pair_flush_index,
+    ProducedPairCount* produced_pair_flush_index,
     RedexPair global_active_pair_memory[MAXIMUM_REDEX_COUNT],
     ap_uint<32>* global_queue_tail_index,
     ap_uint<32>* global_queue_count_value) {

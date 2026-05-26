@@ -8,6 +8,7 @@ using PortTag = ap_uint<PORT_TAG_BIT_COUNT>;
 using PortValue = ap_uint<PORT_VALUE_BIT_COUNT>;
 using PackedNode = ap_uint<NODE_WIDTH>;
 using NodeAddress = ap_uint<PORT_VALUE_BIT_COUNT>;
+using ProducedPairCount = ap_uint<PRODUCED_PAIR_COUNTER_BIT_COUNT>;
 
 struct RedexPair {
   Port left_port;
@@ -16,7 +17,7 @@ struct RedexPair {
 
 struct ProducedActivePairs {
   RedexPair produced_pairs[MAXIMUM_PRODUCED_ACTIVE_PAIRS_PER_INTERACTION];
-  ap_uint<32> produced_pair_count;
+  ProducedPairCount produced_pair_count;
 };
 
 struct BookDefinitionHeader {
