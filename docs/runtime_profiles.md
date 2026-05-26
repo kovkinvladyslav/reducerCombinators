@@ -402,3 +402,18 @@ Focused CSYNTH completed at `3749 LUT`, `1148 FF`, `0 DSP`, `0 BRAM`,
 scheduler `II=1`, and `-1.97` slack, matching try38. The result shows that the
 completion guard is not the useful lever; the next profile should split staged
 `LINK` writeback itself.
+
+Try41 adds that staged `LINK` decide/write split:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_staged_link_split_classify_split_writeback_split_refill_singlepop_compact_produced_direct_link_decide_write_split_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_LINK_DECIDE_WRITE_SPLIT`, adding a
+`DECIDE_RESULT` phase between `READ_PREVIOUS` and `WRITE_RESULT`. Focused
+CSYNTH completed at `3707 LUT`, `1150 FF`, `0 DSP`, `0 BRAM`, scheduler
+`II=1`, and `-1.16` slack with estimated Fmax `118.28 MHz`. This is the best
+focused scheduler timing so far. The result should be treated as a positive
+architecture point even though it is not timing-clean yet, because the top
+critical path moved away from substitution-memory staged `LINK` and into
+non-link produced-pair/node checks.

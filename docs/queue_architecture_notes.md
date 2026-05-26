@@ -2043,3 +2043,53 @@ still share one pipelined service region.
 
 The next experiment should split the staged `LINK` writeback tick rather than
 adjust completion guards.
+
+## Try41 Staged LINK Decide-Write Split
+
+Try41 implements that writeback split under:
+
+```text
+ENABLE_PARALLEL_LINK_DECIDE_WRITE_SPLIT
+```
+
+Unlike try39, it does not compute the unbound predicate in the read stage. It
+adds a separate selected-command staged `LINK` phase:
+
+```text
+READ_PREVIOUS -> DECIDE_RESULT -> WRITE_RESULT -> APPEND_RESULT
+```
+
+The `DECIDE_RESULT` tick compares the previously read substitution port against
+the unbound marker and stores only the one-bit emit decision. The later
+`WRITE_RESULT` tick mutates substitution memory based on that decision. This
+adds one service tick for variable `LINK`, but separates the unbound-marker
+comparison from substitution-memory writeback and interaction completion.
+
+Full-profile CSIM and FPGA-small CSIM both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try38 direct staged `LINK` append | 3749 | 1148 | 0 | 0 | 1 | `-1.97` | `107.85 MHz` |
+| Try40 direct staged `LINK` implicit success | 3749 | 1148 | 0 | 0 | 1 | `-1.97` | `107.85 MHz` |
+| Try41 staged `LINK` decide/write split | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+
+This is the strongest focused parallel scheduler result so far. It is still
+not timing-clean under the current uncertainty setting, but it moves the top
+critical path away from staged `LINK` substitution memory. Vitis now reports a
+path through selected-command produced-pair state and non-link erasure/node
+checks feeding `local_status_code`.
+
+For diploma wording:
+
+```text
+Try41 validates that HLS-visible service boundaries matter more than the
+software-level size of the rule. Splitting staged LINK decision from writeback
+adds one reducer service tick, but removes the substitution-memory
+read/compare/write chain from the top critical path. This is an FPGA-oriented
+tradeoff: slightly higher rule latency for a shorter and more bankable
+scheduler datapath.
+```
+
+The next experiment should preserve try41 and target the new non-link
+produced-pair/node-check path, especially `ERASE`/`ANNIHILATE` output
+construction in the focused rule subset.

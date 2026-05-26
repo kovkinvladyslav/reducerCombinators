@@ -824,7 +824,11 @@ extern "C" void reducer_core_parallel(
 #endif
 #if ENABLE_PARALLEL_STAGED_LINK
   ap_uint<1> selected_command_link_active = 0;
+#if ENABLE_PARALLEL_LINK_DECIDE_WRITE_SPLIT
+  ap_uint<3> selected_command_link_stage = PARALLEL_LINK_STAGE_IDLE;
+#else
   ap_uint<2> selected_command_link_stage = PARALLEL_LINK_STAGE_IDLE;
+#endif
   PortValue selected_command_link_variable_index = 0;
   Port selected_command_link_other_port = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
   Port selected_command_link_previous_port = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
@@ -1624,11 +1628,31 @@ extern "C" void reducer_core_parallel(
             selected_command_link_previous_is_unbound =
                 (previous_port == unbound_marker);
 #endif
+#if ENABLE_PARALLEL_LINK_DECIDE_WRITE_SPLIT
+            selected_command_link_stage = PARALLEL_LINK_STAGE_DECIDE_RESULT;
+#else
             selected_command_link_stage = PARALLEL_LINK_STAGE_WRITE_RESULT;
+#endif
             parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
 #if ENABLE_PARALLEL_SPLIT_LINK_WRITEBACK
+#if ENABLE_PARALLEL_LINK_DECIDE_WRITE_SPLIT
+          } else if (selected_command_link_stage == PARALLEL_LINK_STAGE_DECIDE_RESULT) {
+            Port unbound_marker = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+            selected_command_link_emit_pair =
+                (selected_command_link_previous_port == unbound_marker) ? 0 : 1;
+            selected_command_link_stage = PARALLEL_LINK_STAGE_WRITE_RESULT;
+            parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+#endif
           } else if (selected_command_link_stage == PARALLEL_LINK_STAGE_WRITE_RESULT) {
             Port unbound_marker = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+#if ENABLE_PARALLEL_LINK_DECIDE_WRITE_SPLIT
+            if (selected_command_link_emit_pair) {
+              substitution_memory[selected_command_link_variable_index] = unbound_marker;
+            } else {
+              substitution_memory[selected_command_link_variable_index] =
+                  selected_command_link_other_port;
+            }
+#else
 #if ENABLE_PARALLEL_LINK_READ_DECODE
             if (selected_command_link_previous_is_unbound) {
 #else
@@ -1641,6 +1665,7 @@ extern "C" void reducer_core_parallel(
               substitution_memory[selected_command_link_variable_index] = unbound_marker;
               selected_command_link_emit_pair = 1;
             }
+#endif
             selected_command_link_stage = PARALLEL_LINK_STAGE_APPEND_RESULT;
             parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
 #endif
