@@ -2253,3 +2253,50 @@ The next experiment should return to try41 and keep classification outside
 SELECT. A more promising direction is a compact classifier in the existing
 CLASSIFY service, or a narrow class field produced by a dedicated classify tick
 that does not also perform lane refill/global queue movement.
+
+## Try45 Compact Classify Service
+
+Try45 tests the first try44 recommendation under:
+
+```text
+ENABLE_PARALLEL_COMPACT_CLASSIFY_SERVICE
+```
+
+Unlike try44, it keeps the try41 SELECT-to-CLASSIFY service boundary. SELECT
+only captures the selected candidate and routes to CLASSIFY. The compact
+focused-rule decoder is used inside `PARALLEL_SERVICE_CLASSIFY`, where the
+generic `get_interaction_rule_kind` call previously ran.
+
+Full-profile CSIM and FPGA-small CSIM passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try41 staged `LINK` decide/write split | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+| Try44 compact classify in SELECT | 3842 | 1156 | 0 | 0 | 1 | `-7.29` | `68.57 MHz` |
+| Try45 compact classify in CLASSIFY | 3707 | 1150 | 0 | 0 | 1 | `-1.16` | `118.28 MHz` |
+
+This is a neutral negative result. It confirms that try44's regression came
+from putting decode in SELECT, not from the compact decoder itself. However,
+using the compact decoder in CLASSIFY does not improve over try41. The
+critical path remains:
+
+```text
+selected produced-pair left port
+erasure-port / node-address selection
+node-address range check
+local_status_code phi/store
+```
+
+For diploma wording:
+
+```text
+Try45 separates two effects from try44. Compact classification is not harmful
+when kept in the classify service, but it is also not sufficient to improve the
+focused parallel scheduler. The limiting path is no longer rule classification;
+it is selected non-link execution and status production.
+```
+
+The next experiment should stop optimizing classification alone. A better
+direction is a dedicated narrow selected non-link service that validates/reads
+node data in one tick and emits produced pairs in a later tick, without
+reusing the broad `PARALLEL_SERVICE_CLASSIFY` controller that failed in try43.
