@@ -1624,3 +1624,62 @@ success cases avoid driving the global status mux
 
 This would be a cleaner FPGA architecture than adding more command slots or
 duplicating rule datapaths.
+
+## Try33 Pending Status Commit Service
+
+Try33 tests the status-control recommendation from try32 under:
+
+```text
+ENABLE_PARALLEL_PENDING_STATUS
+```
+
+It keeps the try31 capture/classify split and try32 staged-`LINK` writeback
+split. Instead of adding another interaction-rule stage, selected-command error
+paths record:
+
+```text
+pending_status_valid
+pending_status_code
+```
+
+Then a narrow `PARALLEL_SERVICE_STATUS` phase commits the pending status into
+`local_status_code`. The intended hardware effect was to reduce the number of
+service branches feeding the shared status phi/store.
+
+Full-profile CSIM and FPGA-small CSIM both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try31 split classify | 4602 | 2667 | 0 | 0 | 1 | `-4.35` | `85.82 MHz` |
+| Try32 split `LINK` writeback | 4594 | 2669 | 0 | 0 | 1 | `-3.19` | `95.28 MHz` |
+| Try33 pending status | 4772 | 2282 | 0 | 0 | 1 | `-3.16` | `95.58 MHz` |
+
+This is a useful negative result. The pending-status service reduces FF usage,
+but it increases LUTs and barely moves timing. The critical path remains shaped
+by `global_queue_count_value`, redex-queue empty/refill control, and the
+`local_status_code` phi/store. In other words, the problem is not only that
+selected-command rule branches write status directly. The parent service loop
+still combines global queue mutation/refill selection with status/control
+resolution.
+
+For diploma wording:
+
+```text
+Try33 shows that status deferral by itself is insufficient. The remaining
+timing path is a global scheduler-control path, not a local rule-status path.
+The next architectural boundary should split refill/count mutation from
+selected-command execution rather than adding more status protocol state.
+```
+
+The next experiment should return to try32 as the better base and split refill
+into narrower services:
+
+```text
+decide which local lanes need refill
+pop from global active-pair queue and update global count
+select/classify/execute selected command
+commit produced pairs
+```
+
+This directly targets the `global_queue_count_value` portion of the current
+critical path.

@@ -73,6 +73,18 @@ static inline void record_parallel_error_status(
   }
 }
 
+#if ENABLE_PARALLEL_PENDING_STATUS
+static inline void defer_parallel_status(
+    ap_uint<1>* pending_status_valid,
+    ap_uint<32>* pending_status_code,
+    ReducerServicePhase* parallel_service_phase,
+    ap_uint<32> status_code) {
+  *pending_status_valid = 1;
+  *pending_status_code = status_code;
+  *parallel_service_phase = PARALLEL_SERVICE_STATUS;
+}
+#endif
+
 static inline void increment_lane_committed_step_counter(
     ReducerStatistics* reducer_statistics,
     ap_uint<32> lane_index) {
@@ -781,6 +793,10 @@ extern "C" void reducer_core_parallel(
   ap_uint<32> local_status_code = REDUCER_STATUS_SUCCESS;
 #if ENABLE_PARALLEL_SERVICE_PHASE
   ReducerServicePhase parallel_service_phase = PARALLEL_SERVICE_REFILL;
+#if ENABLE_PARALLEL_PENDING_STATUS
+  ap_uint<1> pending_status_valid = 0;
+  ap_uint<32> pending_status_code = REDUCER_STATUS_SUCCESS;
+#endif
   RedexPair phased_candidate_active_pairs[REDUCER_LANE_COUNT];
   InteractionRuleKind phased_candidate_rule_kinds[REDUCER_LANE_COUNT];
   ap_uint<1> phased_lane_should_commit[REDUCER_LANE_COUNT];
@@ -863,7 +879,12 @@ extern "C" void reducer_core_parallel(
 
   while (
 #if ENABLE_PARALLEL_SERVICE_PHASE
-      (executed_steps < maximum_steps || parallel_service_phase == PARALLEL_SERVICE_COMMIT) &&
+      (executed_steps < maximum_steps ||
+       parallel_service_phase == PARALLEL_SERVICE_COMMIT
+#if ENABLE_PARALLEL_PENDING_STATUS
+       || parallel_service_phase == PARALLEL_SERVICE_STATUS
+#endif
+       ) &&
 #else
       executed_steps < maximum_steps &&
 #endif
@@ -1268,6 +1289,17 @@ extern "C" void reducer_core_parallel(
 #else
       parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
 #endif
+    } else if (parallel_service_phase == PARALLEL_SERVICE_STATUS) {
+#if ENABLE_PARALLEL_PENDING_STATUS
+      if (pending_status_valid) {
+        local_status_code = pending_status_code;
+        pending_status_valid = 0;
+        pending_status_code = REDUCER_STATUS_SUCCESS;
+      }
+      parallel_service_phase = PARALLEL_SERVICE_REFILL;
+#else
+      parallel_service_phase = PARALLEL_SERVICE_REFILL;
+#endif
     } else if (parallel_service_phase == PARALLEL_SERVICE_EXECUTE) {
 #if ENABLE_PARALLEL_WAITING_COMMAND
       if (active_command_valid &&
@@ -1366,7 +1398,15 @@ extern "C" void reducer_core_parallel(
                 reducer_statistics->redex_queue_overflow_count =
                     reducer_statistics->redex_queue_overflow_count + 1;
 #endif
+#if ENABLE_PARALLEL_PENDING_STATUS
+                defer_parallel_status(
+                    &pending_status_valid,
+                    &pending_status_code,
+                    &parallel_service_phase,
+                    REDUCER_STATUS_REDEX_QUEUE_OVERFLOW);
+#else
                 local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
+#endif
               } else {
 #if ENABLE_REDUCER_STATISTICS
                 count_executed_rule(reducer_statistics, selected_command_rule_kind);
@@ -1376,7 +1416,13 @@ extern "C" void reducer_core_parallel(
                     reducer_statistics,
                     selected_command_lane_index);
               }
+#if ENABLE_PARALLEL_PENDING_STATUS
+              if (!pending_status_valid) {
+                parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+              }
+#else
               parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
             } else {
               PortValue variable_index = get_port_value(variable_port);
               if (variable_index >= MAXIMUM_VARIABLE_COUNT) {
@@ -1384,8 +1430,16 @@ extern "C" void reducer_core_parallel(
                 reducer_statistics->unsupported_interaction_count =
                     reducer_statistics->unsupported_interaction_count + 1;
 #endif
+#if ENABLE_PARALLEL_PENDING_STATUS
+                defer_parallel_status(
+                    &pending_status_valid,
+                    &pending_status_code,
+                    &parallel_service_phase,
+                    REDUCER_STATUS_UNSUPPORTED_INTERACTION);
+#else
                 local_status_code = REDUCER_STATUS_UNSUPPORTED_INTERACTION;
                 parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
               } else {
                 selected_command_link_active = 1;
                 selected_command_link_stage = PARALLEL_LINK_STAGE_READ_PREVIOUS;
@@ -1425,7 +1479,15 @@ extern "C" void reducer_core_parallel(
                 reducer_statistics->redex_queue_overflow_count =
                     reducer_statistics->redex_queue_overflow_count + 1;
 #endif
+#if ENABLE_PARALLEL_PENDING_STATUS
+                defer_parallel_status(
+                    &pending_status_valid,
+                    &pending_status_code,
+                    &parallel_service_phase,
+                    REDUCER_STATUS_REDEX_QUEUE_OVERFLOW);
+#else
                 local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
+#endif
               }
             }
 #else
@@ -1442,7 +1504,15 @@ extern "C" void reducer_core_parallel(
                 reducer_statistics->redex_queue_overflow_count =
                     reducer_statistics->redex_queue_overflow_count + 1;
 #endif
+#if ENABLE_PARALLEL_PENDING_STATUS
+                defer_parallel_status(
+                    &pending_status_valid,
+                    &pending_status_code,
+                    &parallel_service_phase,
+                    REDUCER_STATUS_REDEX_QUEUE_OVERFLOW);
+#else
                 local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
+#endif
               }
             }
 #endif
@@ -1461,7 +1531,13 @@ extern "C" void reducer_core_parallel(
                   reducer_statistics,
                   selected_command_lane_index);
             }
+#if ENABLE_PARALLEL_PENDING_STATUS
+            if (!pending_status_valid) {
+              parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+            }
+#else
             parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
           }
         } else {
 #endif
@@ -1570,7 +1646,15 @@ extern "C" void reducer_core_parallel(
           reducer_statistics->redex_queue_overflow_count =
               reducer_statistics->redex_queue_overflow_count + 1;
 #endif
+#if ENABLE_PARALLEL_PENDING_STATUS
+          defer_parallel_status(
+              &pending_status_valid,
+              &pending_status_code,
+              &parallel_service_phase,
+              REDUCER_STATUS_REDEX_QUEUE_OVERFLOW);
+#else
           local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
+#endif
         }
       }
 #elif ENABLE_PARALLEL_TWO_COMMAND_BUFFER
