@@ -716,8 +716,10 @@ static inline InteractionResult apply_lane_interaction_rule(
   initialize_produced_active_pairs(produced_active_pairs);
 
   switch (interaction_rule_kind) {
+#if ENABLE_RULE_LINK
     case INTERACTION_RULE_LINK:
       return apply_lane_link_rule(substitution_memory, produced_active_pairs, left_port, right_port);
+#endif
     case INTERACTION_RULE_VOID:
       return apply_void_rule();
     case INTERACTION_RULE_ERASE:

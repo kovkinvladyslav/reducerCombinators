@@ -37,6 +37,10 @@
 #define ENABLE_RULE_CALL 1
 #endif
 
+#ifndef ENABLE_RULE_LINK
+#define ENABLE_RULE_LINK 1
+#endif
+
 #ifndef ENABLE_RULE_OPERATE
 #define ENABLE_RULE_OPERATE 1
 #endif

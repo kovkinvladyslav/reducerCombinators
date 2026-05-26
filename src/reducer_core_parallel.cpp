@@ -287,6 +287,7 @@ static inline ap_uint<1> lane_conflicts_with_committed_work(
         continue;
       }
 
+#if ENABLE_RULE_LINK
       if (candidate_rule_kind == INTERACTION_RULE_LINK &&
           committed_rule_kind == INTERACTION_RULE_LINK &&
           get_port_value(get_link_variable_port_for_conflict_check(
@@ -310,6 +311,7 @@ static inline ap_uint<1> lane_conflicts_with_committed_work(
             reducer_statistics->substitution_bank_conflict_count + 1;
 #endif
       }
+#endif
 
       if (active_pairs_touch_same_binary_node(candidate_active_pair, committed_active_pair)) {
 #if ENABLE_PARALLEL_REDUCER_STATISTICS

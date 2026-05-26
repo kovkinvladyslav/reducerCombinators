@@ -25,9 +25,11 @@ static inline InteractionRuleKind get_interaction_rule_kind(Port left_port, Port
   }
 #endif
 
+#if ENABLE_RULE_LINK
   if (is_variable_port(left_port) || is_variable_port(right_port)) {
     return INTERACTION_RULE_LINK;
   }
+#endif
 
 #if ENABLE_RULE_CALL
   if (left_port_tag == PORT_TAG_REFERENCE || right_port_tag == PORT_TAG_REFERENCE) {

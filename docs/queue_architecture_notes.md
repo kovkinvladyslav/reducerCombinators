@@ -924,3 +924,70 @@ scheduler structure. Two focused options are:
 - split `LINK` into read/decide/write services;
 - synthesize a non-`LINK` structural parallel profile to quantify the cost of
   substitution memory separately from node-memory structural rules.
+
+## Try20 Non-LINK Structural Parallel Probe
+
+Try20 follows the second recommendation from try19. It keeps the phased
+parallel scheduler but adds a default-on `ENABLE_RULE_LINK` gate so the focused
+synthesis profile can disable `LINK` without changing normal reducer behavior.
+
+The focused config is:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_nolink_nostats.cfg
+```
+
+It enables:
+
+```text
+ENABLE_PARALLEL_SERVICE_PHASE
+```
+
+and disables:
+
+```text
+ENABLE_RULE_LINK
+ENABLE_RULE_COMMUTE
+ENABLE_RULE_OPERATE
+ENABLE_RULE_SWITCH
+ENABLE_RULE_CALL
+ENABLE_REDUCER_STATISTICS
+ENABLE_PARALLEL_REDUCER_STATISTICS
+```
+
+The default full-profile CSIM and normal FPGA-small CSIM both passed after a
+small profile-status fix in `apply_numeric_operation`: disabled F24 types are
+now reported as unsupported numeric type before disabled division/remainder
+operation checks. This keeps profile behavior clear for the diploma table.
+
+Synthesis comparison:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Violation | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| Try19 phased structural with `LINK` | 4344 | 1821 | 0 | 4 | 4 | Memory Dependency | `-2.00` | `107.48 MHz` |
+| Try20 phased structural without `LINK` | 3332 | 1448 | 0 | 4 | 3 | Resource Limitation | `-4.94` | `81.69 MHz` |
+
+The first no-`LINK` synthesis still carried dead `LINK` conflict-helper logic,
+so the final measurement also guards those conflict paths with
+`ENABLE_RULE_LINK`. The final report still keeps the four local lane-queue BRAMs
+and reports a resource limitation at `II=3`.
+
+This gives a useful architectural decomposition:
+
+- `LINK` substitution-memory access is a real part of the try19 limiter;
+- removing `LINK` improves II from `4` to `3` and removes substitution-memory
+  fanout from the active datapath;
+- the remaining non-substitution limiter is local active-pair queue port
+  pressure, represented by the four lane-local queue memories.
+
+For diploma wording:
+
+```text
+Try20 separates substitution-memory effects from general scheduler effects.
+The result shows that a parallel reducer cannot be optimized only by fixing
+LINK; lane-local queue ownership also needs explicit hardware treatment.
+```
+
+The next experiment should focus on local queue storage, either by using a tiny
+register-backed queue in the focused structural profile or by splitting local
+queue read/write service phases.

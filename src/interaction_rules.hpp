@@ -60,6 +60,14 @@ static inline Port apply_numeric_operation(
     *status_code = REDUCER_STATUS_INVALID_NUMERIC_OPERATION;
     return make_u24_number_port(0);
   }
+  if (!is_numeric_type_tag(active_numeric_tag)) {
+    *status_code = REDUCER_STATUS_UNSUPPORTED_NUMERIC_TYPE;
+    return make_u24_number_port(0);
+  }
+  if (!ENABLE_NUMERIC_F24 && active_numeric_tag == NUMERIC_TAG_F24) {
+    *status_code = REDUCER_STATUS_UNSUPPORTED_NUMERIC_TYPE;
+    return make_u24_number_port(0);
+  }
   if (!ENABLE_NUMERIC_DIVISION &&
       (operation_tag == NUMERIC_TAG_OPERATION_DIVIDE ||
        operation_tag == NUMERIC_TAG_OPERATION_FLIPPED_DIVIDE)) {
@@ -70,14 +78,6 @@ static inline Port apply_numeric_operation(
       (operation_tag == NUMERIC_TAG_OPERATION_REMAINDER ||
        operation_tag == NUMERIC_TAG_OPERATION_FLIPPED_REMAINDER)) {
     *status_code = REDUCER_STATUS_INVALID_NUMERIC_OPERATION;
-    return make_u24_number_port(0);
-  }
-  if (!is_numeric_type_tag(active_numeric_tag)) {
-    *status_code = REDUCER_STATUS_UNSUPPORTED_NUMERIC_TYPE;
-    return make_u24_number_port(0);
-  }
-  if (!ENABLE_NUMERIC_F24 && active_numeric_tag == NUMERIC_TAG_F24) {
-    *status_code = REDUCER_STATUS_UNSUPPORTED_NUMERIC_TYPE;
     return make_u24_number_port(0);
   }
   if (!ENABLE_NUMERIC_F24_REMAINDER &&
