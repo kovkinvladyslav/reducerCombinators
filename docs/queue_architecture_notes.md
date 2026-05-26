@@ -540,3 +540,64 @@ This is unusually clean evidence: the top-level saving equals the saving inside
 `apply_numeric_operation`, and the try13 reports contain no `generic_fmod`
 module. For the diploma, this supports describing numeric operations as a
 separate resource policy layered on top of the interaction-net runtime.
+
+## Try14 Shared Integer Div/Rem Operand Selection
+
+Try14 continues from try13 and asks a narrower full-profile synthesis question:
+after removing F24 remainder, are the remaining integer divide and remainder
+operators duplicated because flipped and non-flipped operations are separate
+switch cases?
+
+The implementation adds:
+
+```text
+ENABLE_SHARED_INTEGER_DIV_REM
+```
+
+The gate defaults to `0`, preserving the ordinary full-profile source path.
+When enabled, U24 and I24 divide/remainder first select numerator and
+denominator based on the operation tag, then execute one `/` or `%` expression
+per signedness and operation. This is a hardware-shaping change only: it does
+not alter the numeric result, the division-by-zero status, or interaction-net
+semantics.
+
+Validation:
+
+- try14 full-profile CSIM passed with the short Vitis work directory
+  `csim_t14`;
+- try14 full-profile no-statistics CSYNTH completed with `csyn_t14`;
+- longer CSIM work directory names triggered a Vitis `.\csim.exe` launch
+  `invalid argument` issue after compilation, so short work directories are
+  preferred for repeatable Windows runs.
+
+Top-level comparison:
+
+| Build | LUT | FF | DSP | Main loop II | Interpretation |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Try13 full no F24 remainder | 14017 | 7902 | 7 | 1 | F24 `fmod` removed |
+| Try14 shared integer div/rem | 13333 | 6965 | 9 | 1 | integer div/rem duplicated modules removed |
+
+Numeric-helper comparison:
+
+| Build | Numeric LUT | Numeric FF | Numeric DSP |
+| --- | ---: | ---: | ---: |
+| Try13 full no F24 remainder | 5131 | 3423 | 5 |
+| Try14 shared integer div/rem | 4562 | 2458 | 7 |
+
+The try14 report contains one each of:
+
+- `sdiv_24ns_24ns_24_28_seq_1`;
+- `srem_24ns_24ns_24_28_seq_1`;
+- `udiv_24ns_24ns_24_28_seq_1`;
+- `urem_24ns_24ns_24_28_seq_1`.
+
+The result is positive for LUT/FF and neutral for scheduling: main-loop `II=1`
+is preserved. The tradeoff is DSP. Try14 increases top-level DSP from `7` to
+`9`, not because integer division uses DSPs, but because HLS chooses a
+full-DSP F24 add/sub implementation in this binding. For diploma discussion,
+try14 should be presented as a resource-policy tradeoff rather than a universal
+improvement:
+
+- choose try13 when DSP is the tightest resource;
+- choose try14 when LUT/FF pressure is more important and the extra two DSPs
+  are acceptable.

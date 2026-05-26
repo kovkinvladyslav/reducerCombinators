@@ -99,12 +99,40 @@ static inline Port apply_numeric_operation(
 
   if (active_numeric_tag == NUMERIC_TAG_U24) {
     ap_uint<24> result_u24 = 0;
+#if ENABLE_SHARED_INTEGER_DIV_REM && ENABLE_NUMERIC_DIVISION
+    if (operation_tag == NUMERIC_TAG_OPERATION_DIVIDE ||
+        operation_tag == NUMERIC_TAG_OPERATION_FLIPPED_DIVIDE) {
+      ap_uint<24> denominator_u24 =
+          operation_tag == NUMERIC_TAG_OPERATION_DIVIDE ? active_operand_u24 : captured_operand_u24;
+      ap_uint<24> numerator_u24 =
+          operation_tag == NUMERIC_TAG_OPERATION_DIVIDE ? captured_operand_u24 : active_operand_u24;
+      if (denominator_u24 == 0) {
+        *status_code = REDUCER_STATUS_NUMERIC_DIVISION_BY_ZERO;
+        return make_u24_number_port(0);
+      }
+      return make_u24_number_port(numerator_u24 / denominator_u24);
+    }
+#endif
+#if ENABLE_SHARED_INTEGER_DIV_REM && ENABLE_NUMERIC_REMAINDER
+    if (operation_tag == NUMERIC_TAG_OPERATION_REMAINDER ||
+        operation_tag == NUMERIC_TAG_OPERATION_FLIPPED_REMAINDER) {
+      ap_uint<24> denominator_u24 =
+          operation_tag == NUMERIC_TAG_OPERATION_REMAINDER ? active_operand_u24 : captured_operand_u24;
+      ap_uint<24> numerator_u24 =
+          operation_tag == NUMERIC_TAG_OPERATION_REMAINDER ? captured_operand_u24 : active_operand_u24;
+      if (denominator_u24 == 0) {
+        *status_code = REDUCER_STATUS_NUMERIC_DIVISION_BY_ZERO;
+        return make_u24_number_port(0);
+      }
+      return make_u24_number_port(numerator_u24 % denominator_u24);
+    }
+#endif
     switch (operation_tag) {
       case NUMERIC_TAG_OPERATION_ADD: result_u24 = captured_operand_u24 + active_operand_u24; break;
       case NUMERIC_TAG_OPERATION_SUBTRACT: result_u24 = captured_operand_u24 - active_operand_u24; break;
       case NUMERIC_TAG_OPERATION_FLIPPED_SUBTRACT: result_u24 = active_operand_u24 - captured_operand_u24; break;
       case NUMERIC_TAG_OPERATION_MULTIPLY: result_u24 = captured_operand_u24 * active_operand_u24; break;
-#if ENABLE_NUMERIC_DIVISION
+#if ENABLE_NUMERIC_DIVISION && !ENABLE_SHARED_INTEGER_DIV_REM
       case NUMERIC_TAG_OPERATION_DIVIDE:
         if (active_operand_u24 == 0) {
           *status_code = REDUCER_STATUS_NUMERIC_DIVISION_BY_ZERO;
@@ -120,7 +148,7 @@ static inline Port apply_numeric_operation(
         result_u24 = active_operand_u24 / captured_operand_u24;
         break;
 #endif
-#if ENABLE_NUMERIC_REMAINDER
+#if ENABLE_NUMERIC_REMAINDER && !ENABLE_SHARED_INTEGER_DIV_REM
       case NUMERIC_TAG_OPERATION_REMAINDER:
         if (active_operand_u24 == 0) {
           *status_code = REDUCER_STATUS_NUMERIC_DIVISION_BY_ZERO;
@@ -156,12 +184,40 @@ static inline Port apply_numeric_operation(
 
   if (active_numeric_tag == NUMERIC_TAG_I24) {
     ap_int<24> result_i24 = 0;
+#if ENABLE_SHARED_INTEGER_DIV_REM && ENABLE_NUMERIC_DIVISION
+    if (operation_tag == NUMERIC_TAG_OPERATION_DIVIDE ||
+        operation_tag == NUMERIC_TAG_OPERATION_FLIPPED_DIVIDE) {
+      ap_int<24> denominator_i24 =
+          operation_tag == NUMERIC_TAG_OPERATION_DIVIDE ? active_operand_i24 : captured_operand_i24;
+      ap_int<24> numerator_i24 =
+          operation_tag == NUMERIC_TAG_OPERATION_DIVIDE ? captured_operand_i24 : active_operand_i24;
+      if (denominator_i24 == 0) {
+        *status_code = REDUCER_STATUS_NUMERIC_DIVISION_BY_ZERO;
+        return make_u24_number_port(0);
+      }
+      return make_i24_number_port(numerator_i24 / denominator_i24);
+    }
+#endif
+#if ENABLE_SHARED_INTEGER_DIV_REM && ENABLE_NUMERIC_REMAINDER
+    if (operation_tag == NUMERIC_TAG_OPERATION_REMAINDER ||
+        operation_tag == NUMERIC_TAG_OPERATION_FLIPPED_REMAINDER) {
+      ap_int<24> denominator_i24 =
+          operation_tag == NUMERIC_TAG_OPERATION_REMAINDER ? active_operand_i24 : captured_operand_i24;
+      ap_int<24> numerator_i24 =
+          operation_tag == NUMERIC_TAG_OPERATION_REMAINDER ? captured_operand_i24 : active_operand_i24;
+      if (denominator_i24 == 0) {
+        *status_code = REDUCER_STATUS_NUMERIC_DIVISION_BY_ZERO;
+        return make_u24_number_port(0);
+      }
+      return make_i24_number_port(numerator_i24 % denominator_i24);
+    }
+#endif
     switch (operation_tag) {
       case NUMERIC_TAG_OPERATION_ADD: result_i24 = captured_operand_i24 + active_operand_i24; break;
       case NUMERIC_TAG_OPERATION_SUBTRACT: result_i24 = captured_operand_i24 - active_operand_i24; break;
       case NUMERIC_TAG_OPERATION_FLIPPED_SUBTRACT: result_i24 = active_operand_i24 - captured_operand_i24; break;
       case NUMERIC_TAG_OPERATION_MULTIPLY: result_i24 = captured_operand_i24 * active_operand_i24; break;
-#if ENABLE_NUMERIC_DIVISION
+#if ENABLE_NUMERIC_DIVISION && !ENABLE_SHARED_INTEGER_DIV_REM
       case NUMERIC_TAG_OPERATION_DIVIDE:
         if (active_operand_i24 == 0) {
           *status_code = REDUCER_STATUS_NUMERIC_DIVISION_BY_ZERO;
@@ -177,7 +233,7 @@ static inline Port apply_numeric_operation(
         result_i24 = active_operand_i24 / captured_operand_i24;
         break;
 #endif
-#if ENABLE_NUMERIC_REMAINDER
+#if ENABLE_NUMERIC_REMAINDER && !ENABLE_SHARED_INTEGER_DIV_REM
       case NUMERIC_TAG_OPERATION_REMAINDER:
         if (active_operand_i24 == 0) {
           *status_code = REDUCER_STATUS_NUMERIC_DIVISION_BY_ZERO;

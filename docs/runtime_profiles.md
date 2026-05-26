@@ -129,6 +129,8 @@ The project currently provides:
 | `hls_config_synth_full_compact_service_phase_nostats.cfg` | Full-profile synthesis checkpoint with statistics disabled and compact service-phase architecture enabled |
 | `hls_config_full_compact_service_phase_no_f24_rem.cfg` | Full-profile CSIM checkpoint with compact service phase and F24 remainder disabled |
 | `hls_config_synth_full_compact_service_phase_no_f24_rem_nostats.cfg` | Full-profile synthesis checkpoint with compact service phase, statistics disabled, and F24 remainder disabled |
+| `hls_config_full_compact_service_phase_shared_int_div_rem_no_f24_rem.cfg` | Full-profile CSIM checkpoint with compact service phase, F24 remainder disabled, and shared integer div/rem operand selection enabled |
+| `hls_config_synth_full_compact_service_phase_shared_int_div_rem_no_f24_rem_nostats.cfg` | Full-profile synthesis checkpoint with statistics disabled, F24 remainder disabled, and shared integer div/rem operand selection enabled |
 | `hls_config_synth_fpga_small_nostats.cfg` | FPGA-small synthesis probe with statistics disabled |
 | `hls_config_synth_fpga_small_nostats_nocall.cfg` | FPGA-small synthesis probe with statistics and `CALL` disabled |
 | `hls_config_synth_fpga_small_staged_call.cfg` | FPGA-small synthesis probe with staged single-lane `CALL` enabled |
@@ -238,6 +240,16 @@ division/remainder and other F24 operations remain enabled.
 For Chapter 4, this split should be reported explicitly. FPGA-small CSYNTH is
 the clean measurement for queue/control/runtime architecture changes. Full
 CSYNTH is a milestone reference for the complete semantic profile.
+
+Try14 continues the full-profile numeric-resource investigation. With
+`ENABLE_SHARED_INTEGER_DIV_REM=1` and `ENABLE_NUMERIC_F24_REMAINDER=0`, the
+full compact-service synthesis completed at `13333 LUT`, `6965 FF`, `9 DSP`,
+and main-loop `II=1`. HLS generated one signed divider, one signed remainder
+unit, one unsigned divider, and one unsigned remainder unit, instead of
+duplicating those modules for flipped and non-flipped operations. Compared with
+try13, this saved `684 LUT` and `937 FF`, but increased DSP use by `2` because
+HLS bound F24 add/sub differently in this variant. This makes try14 an optional
+LUT/FF-saving policy, not a default replacement for the try13 resource profile.
 
 ## Suggested Diploma Wording
 
