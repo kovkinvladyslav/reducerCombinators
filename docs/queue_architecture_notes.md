@@ -1383,3 +1383,57 @@ The next parallel step should not keep adding command state inside the same
 pipeline. Better options are to return to try26 and either reduce SELECT/control
 logic, or reintroduce `LINK` with a staged substitution service while preserving
 the single-command execute/commit boundary.
+
+## Try29 Selected Command With LINK Restored
+
+Try29 follows the second recommendation from try28. It returns to the try26
+single selected-command boundary and restores `LINK` in the focused structural
+parallel synthesis profile. Allocation-heavy and numeric/control rules remain
+disabled, so the measured subset is:
+
+```text
+VOID
+LINK
+ERASE
+ANNIHILATE
+```
+
+The focused config is:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_nostats.cfg
+```
+
+Full-profile CSIM and normal FPGA-small CSIM both passed. Focused synthesis
+completed, but failed timing:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Violation | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| Try19 phased structural with `LINK` | 4344 | 1821 | 0 | 4 | 4 | Memory Dependency | `-2.00` | `107.48 MHz` |
+| Try26 selected command without `LINK` | 3170 | 1503 | 0 | 0 | 2 | Resource Limitation | `+0.12` | `139.31 MHz` |
+| Try29 selected command with `LINK` | 3558 | 1422 | 0 | 0 | 2 | Memory Dependency | `-2.00` | `107.48 MHz` |
+
+The result is useful because it isolates the remaining structural-rule
+bottleneck. The try26 selected-command boundary is still valuable: with `LINK`
+restored, it keeps the scheduler at `II=2` and avoids local queue BRAM. However,
+the timing failure returns to the same shape as try19. Vitis reports a critical
+path that starts at the `substitution_memory_0` load in `LINK`, passes through
+the `previous_port` sparse mux and comparison in `lane_interaction.hpp`, and
+ends in `local_status_code` mux/store logic.
+
+For diploma wording:
+
+```text
+Try29 shows that restoring the structural LINK rule on the best selected-command
+scheduler does not fail because of generic queue storage. It fails because LINK
+combines substitution-memory access, previous-port validation, and status
+selection inside the execute phase. This makes LINK the next rule that needs a
+hardware service boundary.
+```
+
+The next parallel experiment should not add more command slots or waiting-state
+control. It should stage `LINK` itself while preserving the try26 selected
+command/writeback boundary. A focused staged-`LINK` try should split
+substitution handling into read, decide, and write service ticks, then measure
+whether the focused structural profile can keep `LINK` enabled with positive
+timing.
