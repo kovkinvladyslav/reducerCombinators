@@ -862,3 +862,65 @@ commit produced pairs
 
 This mirrors the successful single-lane compact service-phase architecture and
 would make memory ownership clearer to HLS.
+
+## Try19 Structural Parallel Service-Phase Scheduler
+
+Try19 follows the service-phase direction from try18. It adds a gated
+`ENABLE_PARALLEL_SERVICE_PHASE` path for the structural parallel profile. The
+normal parallel top remains unchanged unless the gate is enabled.
+
+The phased path keeps the same small structural rule subset as try18, but
+separates the scheduler into explicit services:
+
+```text
+REFILL   - move work from the global queue into empty lane-local queues
+SELECT   - peek local queues, classify rules, and perform conflict checks
+EXECUTE  - pop selected lane work and execute rules into per-lane buffers
+COMMIT   - push one produced active pair back to local/global queues
+```
+
+The focused config is:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_nostats.cfg
+```
+
+Default host validation still passed with `Overall Result: PASS`; the new path
+is isolated behind compile-time gates. The final phased synthesis used
+`csyn_t19_parallel_structural_phased_rerun` after a small completion-condition
+fix that lets the `COMMIT` phase finish produced-pair writeback even when the
+step budget has just been reached.
+
+Synthesis comparison:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try18 structural monolithic scheduler | 4631 | 2873 | 0 | 4 | 8 | `-7.79` | `66.26 MHz` |
+| Try19 structural phased scheduler | 4344 | 1821 | 0 | 4 | 4 | `-2.00` | `107.48 MHz` |
+
+This is the strongest parallel-control result so far. The explicit service
+controller halves the structural parallel II and improves timing substantially.
+It also reduces FFs, even though HLS now infers small local RAMs for per-lane
+produced-pair buffers.
+
+The result is not yet a practical final parallel reducer. HLS still reports a
+`Memory Dependency`, now in a narrower place: the critical path begins at a
+`substitution_memory_0` load in the `LINK` rule, passes through the previous
+port comparison, and ends in `local_status_code` mux/store logic. This is much
+more actionable than the earlier monolithic queue/rule/commit path.
+
+For diploma wording:
+
+```text
+Parallelism was not improved by simply removing large rules. It improved when
+the scheduler was expressed as explicit hardware services. The remaining
+limiter is a specific substitution-memory dependency in structural LINK, which
+points toward a future substitution-write service or banked arbitration.
+```
+
+The next experiment should target substitution memory rather than general
+scheduler structure. Two focused options are:
+
+- split `LINK` into read/decide/write services;
+- synthesize a non-`LINK` structural parallel profile to quantify the cost of
+  substitution memory separately from node-memory structural rules.

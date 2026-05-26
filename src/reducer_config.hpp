@@ -77,6 +77,10 @@
 #define ENABLE_COMPACT_SERVICE_PHASE 0
 #endif
 
+#ifndef ENABLE_PARALLEL_SERVICE_PHASE
+#define ENABLE_PARALLEL_SERVICE_PHASE 0
+#endif
+
 static const int PORT_WIDTH = 32;
 static const int PORT_TAG_BIT_COUNT = 3;
 static const int PORT_VALUE_BIT_COUNT = PORT_WIDTH - PORT_TAG_BIT_COUNT;
@@ -122,6 +126,10 @@ static const int REDUCER_SERVICE_DISPATCH = 0;
 static const int REDUCER_SERVICE_COMPLETE = 1;
 static const int REDUCER_SERVICE_FLUSH = 2;
 static const int REDUCER_SERVICE_CALL = 3;
+static const int PARALLEL_SERVICE_REFILL = 0;
+static const int PARALLEL_SERVICE_SELECT = 1;
+static const int PARALLEL_SERVICE_EXECUTE = 2;
+static const int PARALLEL_SERVICE_COMMIT = 3;
 
 static const ap_uint<PORT_VALUE_BIT_COUNT> INVALID_NODE_ADDRESS = (ap_uint<PORT_VALUE_BIT_COUNT>)(-1);
 static const ap_uint<PORT_VALUE_BIT_COUNT> INVALID_PORT_VALUE = (ap_uint<PORT_VALUE_BIT_COUNT>)(-1);
