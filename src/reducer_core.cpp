@@ -129,7 +129,11 @@ extern "C" void reducer_core(
 #endif
 #endif
 #if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_PRODUCED_PAIR_BUFFER
+  ReducerServicePhase reducer_service_phase = REDUCER_SERVICE_DISPATCH;
+#else
   ap_uint<1> pending_completion_active = 0;
+#endif
 #if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
   InteractionRuleKind pending_completion_rule_kind = INTERACTION_RULE_UNSUPPORTED;
 #endif
@@ -137,13 +141,19 @@ extern "C" void reducer_core(
 
   while (
 #if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_PRODUCED_PAIR_BUFFER
+      reducer_service_phase != REDUCER_SERVICE_DISPATCH ||
+#else
       pending_completion_active ||
 #endif
+#endif
+#if !(ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING && ENABLE_PRODUCED_PAIR_BUFFER)
 #if ENABLE_STAGED_CALL
       call_state.active ||
 #endif
 #if ENABLE_PRODUCED_PAIR_BUFFER
       !produced_active_pairs_are_empty(&produced_active_pairs) ||
+#endif
 #endif
       (executed_steps < maximum_steps && !redex_queue_is_empty(redex_queue_count_value))) {
 #pragma HLS PIPELINE II=1
@@ -160,6 +170,23 @@ extern "C" void reducer_core(
 #endif
 
 #if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_PRODUCED_PAIR_BUFFER
+    if (reducer_service_phase == REDUCER_SERVICE_COMPLETE) {
+#if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
+      record_reducer_completed_step(&executed_steps);
+#else
+      record_reducer_completed_interaction(
+          reducer_statistics,
+          pending_completion_rule_kind,
+          &executed_steps);
+#endif
+      reducer_service_phase = REDUCER_SERVICE_DISPATCH;
+#if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
+      pending_completion_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+#endif
+      continue;
+    }
+#else
     if (pending_completion_active) {
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
       record_reducer_completed_step(&executed_steps);
@@ -176,13 +203,20 @@ extern "C" void reducer_core(
       continue;
     }
 #endif
+#endif
 
     InteractionResult interaction_result = make_interaction_result(1);
     InteractionRuleKind interaction_rule_kind = INTERACTION_RULE_UNSUPPORTED;
     ap_uint<1> interaction_completed = 0;
 
 #if ENABLE_PRODUCED_PAIR_BUFFER
-    if (!produced_active_pairs_are_empty(&produced_active_pairs)) {
+    if (
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+        reducer_service_phase == REDUCER_SERVICE_FLUSH
+#else
+        !produced_active_pairs_are_empty(&produced_active_pairs)
+#endif
+    ) {
 #if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
       interaction_rule_kind = buffered_rule_kind;
 #endif
@@ -199,6 +233,9 @@ extern "C" void reducer_core(
             interaction_result,
             &local_status_code);
         initialize_produced_active_pairs(&produced_active_pairs);
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+        reducer_service_phase = REDUCER_SERVICE_DISPATCH;
+#endif
         break;
       } else if (produced_pair_flush_index >= produced_active_pairs.produced_pair_count) {
         initialize_produced_active_pairs(&produced_active_pairs);
@@ -208,11 +245,18 @@ extern "C" void reducer_core(
 #else
         if (buffered_rule_kind == INTERACTION_RULE_CALL && call_state.active) {
 #endif
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+          reducer_service_phase = REDUCER_SERVICE_CALL;
+#endif
           continue;
         }
 #endif
 #if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+#if ENABLE_COMPACT_SERVICE_PHASE
+        reducer_service_phase = REDUCER_SERVICE_COMPLETE;
+#else
         pending_completion_active = 1;
+#endif
 #if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
         pending_completion_rule_kind = buffered_rule_kind;
 #endif
@@ -228,11 +272,20 @@ extern "C" void reducer_core(
 #endif
         continue;
       }
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+      reducer_service_phase = REDUCER_SERVICE_FLUSH;
+#endif
       continue;
     } else
 #endif
 #if ENABLE_STAGED_CALL
-    if (call_state.active) {
+    if (
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING && ENABLE_PRODUCED_PAIR_BUFFER
+        reducer_service_phase == REDUCER_SERVICE_CALL
+#else
+        call_state.active
+#endif
+    ) {
       interaction_rule_kind = INTERACTION_RULE_CALL;
 #if ENABLE_PRODUCED_PAIR_BUFFER
       initialize_produced_active_pairs(&produced_active_pairs);
@@ -248,6 +301,9 @@ extern "C" void reducer_core(
       if (interaction_result.success &&
           !produced_active_pairs_are_empty(&produced_active_pairs)) {
         produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+        reducer_service_phase = REDUCER_SERVICE_FLUSH;
+#endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
         buffered_rule_is_call = 1;
 #else
@@ -260,13 +316,23 @@ extern "C" void reducer_core(
             reducer_statistics,
             interaction_result,
             &local_status_code);
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+        reducer_service_phase = REDUCER_SERVICE_DISPATCH;
+#endif
         break;
       }
       if (call_state.active) {
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+        reducer_service_phase = REDUCER_SERVICE_CALL;
+#endif
         continue;
       }
 #if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+#if ENABLE_COMPACT_SERVICE_PHASE
+      reducer_service_phase = REDUCER_SERVICE_COMPLETE;
+#else
       pending_completion_active = 1;
+#endif
 #if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
       pending_completion_rule_kind = interaction_rule_kind;
 #endif
@@ -327,6 +393,9 @@ extern "C" void reducer_core(
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+#endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
 #else
@@ -358,6 +427,9 @@ extern "C" void reducer_core(
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+#endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
 #else
@@ -386,6 +458,9 @@ extern "C" void reducer_core(
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+#endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
 #else
@@ -418,6 +493,9 @@ extern "C" void reducer_core(
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+#endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
 #else
@@ -454,6 +532,9 @@ extern "C" void reducer_core(
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+#endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
 #else
@@ -490,6 +571,9 @@ extern "C" void reducer_core(
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+#endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 0;
 #else
@@ -529,12 +613,22 @@ extern "C" void reducer_core(
           if (interaction_result.success &&
               !produced_active_pairs_are_empty(&produced_active_pairs)) {
             produced_pair_flush_index = 0;
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+            reducer_service_phase = REDUCER_SERVICE_FLUSH;
+#endif
 #if ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS
             buffered_rule_is_call = 1;
 #else
             buffered_rule_kind = interaction_rule_kind;
 #endif
           }
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+          if (interaction_result.success &&
+              produced_active_pairs_are_empty(&produced_active_pairs) &&
+              call_state.active) {
+            reducer_service_phase = REDUCER_SERVICE_CALL;
+          }
+#endif
           interaction_completed =
               !call_state.active && produced_active_pairs_are_empty(&produced_active_pairs);
 #else
@@ -597,7 +691,11 @@ extern "C" void reducer_core(
     }
 
 #if ENABLE_DEFERRED_COMPLETION_ACCOUNTING
+#if ENABLE_COMPACT_SERVICE_PHASE && ENABLE_PRODUCED_PAIR_BUFFER
+    reducer_service_phase = REDUCER_SERVICE_COMPLETE;
+#else
     pending_completion_active = 1;
+#endif
 #if !(ENABLE_COMPACT_COMPLETION_STATE && !ENABLE_REDUCER_STATISTICS)
     pending_completion_rule_kind = interaction_rule_kind;
 #endif

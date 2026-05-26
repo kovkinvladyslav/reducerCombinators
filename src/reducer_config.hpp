@@ -57,6 +57,10 @@
 #define ENABLE_COMPACT_COMPLETION_STATE 0
 #endif
 
+#ifndef ENABLE_COMPACT_SERVICE_PHASE
+#define ENABLE_COMPACT_SERVICE_PHASE 0
+#endif
+
 static const int PORT_WIDTH = 32;
 static const int PORT_TAG_BIT_COUNT = 3;
 static const int PORT_VALUE_BIT_COUNT = PORT_WIDTH - PORT_TAG_BIT_COUNT;
@@ -96,6 +100,10 @@ static const int CALL_STAGE_INITIALIZE_VARIABLES = 1;
 static const int CALL_STAGE_COPY_NODES = 2;
 static const int CALL_STAGE_PUSH_REDEXES = 3;
 static const int CALL_STAGE_PUSH_ROOT = 4;
+static const int REDUCER_SERVICE_DISPATCH = 0;
+static const int REDUCER_SERVICE_COMPLETE = 1;
+static const int REDUCER_SERVICE_FLUSH = 2;
+static const int REDUCER_SERVICE_CALL = 3;
 
 static const ap_uint<PORT_VALUE_BIT_COUNT> INVALID_NODE_ADDRESS = (ap_uint<PORT_VALUE_BIT_COUNT>)(-1);
 static const ap_uint<PORT_VALUE_BIT_COUNT> INVALID_PORT_VALUE = (ap_uint<PORT_VALUE_BIT_COUNT>)(-1);

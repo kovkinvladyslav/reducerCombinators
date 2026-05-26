@@ -357,3 +357,57 @@ pending completion, produced-pair flush, active staged `CALL`, and normal
 dispatch as mutually exclusive reducer services. That would test whether HLS
 can schedule one small phase field more cleanly than several independent active
 bits feeding the pipeline target block.
+
+## Try10 Compact Service Phase
+
+Try10 implements the service-phase direction suggested by try9. Under
+`ENABLE_COMPACT_SERVICE_PHASE`, the produced-buffer reducer uses one compact
+phase register for the mutually exclusive runtime services:
+
+- `REDUCER_SERVICE_COMPLETE`: increment completed interaction count;
+- `REDUCER_SERVICE_FLUSH`: commit one produced active pair to `redex_memory`;
+- `REDUCER_SERVICE_CALL`: advance one staged `CALL` transaction step;
+- `REDUCER_SERVICE_DISPATCH`: pop and execute a normal active pair.
+
+This does not change interaction-combinator semantics. It changes how the FPGA
+controller represents the reducer's service priority. The prior implementation
+used separate active predicates, which HLS reported in critical paths. The
+compact phase makes that priority explicit as a small FSM-like state.
+
+Try10 FPGA-small CSIM passed. Full CSIM was blocked by Windows Application
+Control before the generated executable could run, but the compact phase is
+disabled in the default full profile and full-profile syntax still passed.
+
+FPGA-small synthesis completed:
+
+| Build | LUT | FF | DSP | Main loop II | Estimated clock | Timing/slack | Main result |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| FPGA-small derived buffer activity try9 | 9615 | 4269 | 2 | 1 | `8.510 ns` | `-1.21` | service flag still timing-limited |
+| FPGA-small compact service phase try10 | 9646 | 4356 | 2 | 1 | `7.287 ns` | `+0.01` | timing estimate clears |
+
+Try10 adds `31 LUT` and `87 FF` over try9, but it improves estimated timing by
+`1.223 ns` and reaches positive top-level slack. This is the first queue/control
+try after staged `CALL` to preserve `II=1` and clear the 10 ns estimate with
+the configured `2.70 ns` uncertainty.
+
+For the diploma, this is strong evidence that the reducer should be described
+as a small service controller around the interaction rules, not as one
+monolithic rule-dispatch loop. The FPGA-friendly view is:
+
+```text
+complete pending interaction
+  else flush one produced pair
+  else service staged CALL
+  else dispatch one active pair
+```
+
+The explicit phase register is the hardware boundary that makes this priority
+visible to HLS.
+
+## Next Queue Architecture
+
+The compact service phase should be treated as the current FPGA-small control
+baseline. The next attempt should try to recover the small FF increase without
+returning to independent active flags. Candidates include factoring repeated
+produced-buffer setup, simplifying phase-update assignments, or narrowing any
+remaining service metadata that is only needed in statistics-enabled builds.

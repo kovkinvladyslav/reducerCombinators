@@ -140,6 +140,8 @@ The project currently provides:
 | `hls_config_synth_fpga_small_narrow_buffer_cursor.cfg` | FPGA-small synthesis probe with staged `CALL`, produced-pair buffer, deferred completion accounting, compact completion metadata, and narrowed produced-buffer cursor enabled |
 | `hls_config_fpga_small_derived_buffer_activity.cfg` | FPGA-small CSIM config deriving produced-buffer activity from the narrow produced-pair count instead of a separate active flag |
 | `hls_config_synth_fpga_small_derived_buffer_activity.cfg` | FPGA-small synthesis probe deriving produced-buffer activity from the narrow produced-pair count instead of a separate active flag |
+| `hls_config_fpga_small_compact_service_phase.cfg` | FPGA-small CSIM config with compact reducer service-phase control enabled |
+| `hls_config_synth_fpga_small_compact_service_phase.cfg` | FPGA-small synthesis probe with compact reducer service-phase control enabled |
 | `hls_config_synth_structural_core.cfg` | Structural IC core synthesis probe: `LINK`, `VOID`, `ERASE`, `ANNIHILATE`, `COMMUTE` |
 
 The `nostats` synthesis configs disable `ENABLE_REDUCER_STATISTICS` and
@@ -196,6 +198,13 @@ buffer service activity from the nonzero produced-pair count. Try9 preserved
 final loop `II=1` and produced `9615 LUT`, `4269 FF`, and `2 DSP`. The critical
 path moved from `produced_pair_buffer_active` to `pending_completion_active`,
 showing that the next control target is the broader service-phase encoding.
+
+The compact-service-phase configs are a reducer-controller experiment on top of
+try9. They encode completion, produced-pair flush, staged `CALL` service, and
+normal dispatch as one compact service phase. Try10 preserved final loop `II=1`
+and produced `9646 LUT`, `4356 FF`, and `2 DSP`. The estimated clock improved
+from `8.510 ns` to `7.287 ns`, and the top-level timing estimate improved from
+`-1.21` slack to `+0.01`.
 
 ## Suggested Diploma Wording
 

@@ -9,6 +9,7 @@ using PortValue = ap_uint<PORT_VALUE_BIT_COUNT>;
 using PackedNode = ap_uint<NODE_WIDTH>;
 using NodeAddress = ap_uint<PORT_VALUE_BIT_COUNT>;
 using ProducedPairCount = ap_uint<PRODUCED_PAIR_COUNTER_BIT_COUNT>;
+using ReducerServicePhase = ap_uint<2>;
 
 struct RedexPair {
   Port left_port;
