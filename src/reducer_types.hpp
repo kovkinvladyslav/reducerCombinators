@@ -10,6 +10,8 @@ using PackedNode = ap_uint<NODE_WIDTH>;
 using NodeAddress = ap_uint<PORT_VALUE_BIT_COUNT>;
 using ProducedPairCount = ap_uint<PRODUCED_PAIR_COUNTER_BIT_COUNT>;
 using ReducerServicePhase = ap_uint<2>;
+using LaneLocalQueueIndex = ap_uint<LANE_LOCAL_QUEUE_INDEX_BIT_COUNT>;
+using LaneLocalQueueCount = ap_uint<LANE_LOCAL_QUEUE_COUNT_BIT_COUNT>;
 
 struct RedexPair {
   Port left_port;
@@ -46,9 +48,9 @@ struct CallInstantiationState {
 
 struct ReducerLaneState {
   RedexPair local_active_pair_queue[LANE_LOCAL_ACTIVE_PAIR_QUEUE_LENGTH];
-  ap_uint<32> local_queue_head_index;
-  ap_uint<32> local_queue_tail_index;
-  ap_uint<32> local_queue_count;
+  LaneLocalQueueIndex local_queue_head_index;
+  LaneLocalQueueIndex local_queue_tail_index;
+  LaneLocalQueueCount local_queue_count;
   ap_uint<1> lane_is_idle;
 };
 

@@ -365,6 +365,9 @@ extern "C" void reducer_core_parallel(
 
   ReducerLaneState reducer_lanes[REDUCER_LANE_COUNT];
 #pragma HLS ARRAY_PARTITION variable=reducer_lanes complete dim=1
+#if ENABLE_REGISTER_LANE_QUEUE
+#pragma HLS ARRAY_PARTITION variable=reducer_lanes->local_active_pair_queue complete dim=1
+#endif
   for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
 #pragma HLS UNROLL
     initialize_reducer_lane_state(&reducer_lanes[lane_index]);

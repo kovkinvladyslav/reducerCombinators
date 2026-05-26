@@ -991,3 +991,61 @@ LINK; lane-local queue ownership also needs explicit hardware treatment.
 The next experiment should focus on local queue storage, either by using a tiny
 register-backed queue in the focused structural profile or by splitting local
 queue read/write service phases.
+
+## Try21 Register-Backed Lane Queue Probe
+
+Try21 follows the local-queue recommendation from try20. It adds a focused
+`ENABLE_REGISTER_LANE_QUEUE` gate. When enabled, the lane-local active-pair
+queue length is reduced from `32` to `4`, the local queue array is completely
+partitioned, and the local queue head/tail/count fields are narrowed to 2-bit
+indexes and a 3-bit count. Default builds keep the original 32-entry queue.
+
+The focused config is:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_nolink_regqueue_nostats.cfg
+```
+
+It keeps the try20 no-`LINK` rule subset and adds:
+
+```text
+ENABLE_REGISTER_LANE_QUEUE
+```
+
+Full-profile CSIM and normal FPGA-small CSIM both passed. The focused synthesis
+completed with:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Violation | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| Try20 no-`LINK`, BRAM local queues | 3332 | 1448 | 0 | 4 | 3 | Resource Limitation | `-4.94` | `81.69 MHz` |
+| Try21 no-`LINK`, register local queues | 3914 | 2071 | 0 | 0 | 3 | Resource Limitation | `-0.02` | `136.57 MHz` |
+
+HLS evidence confirms the queue storage change:
+
+- Vitis disaggregated `reducer_lanes` because of the struct-field partition;
+- the pipeline report lists `Memory: N/A`;
+- the remaining BRAM count is `0`;
+- local queue index operations use 2-bit indexes and count operations use a
+  3-bit count in the detailed expression table.
+
+Interpretation:
+
+- local queue BRAMs were the source of the remaining BRAM use and a major
+  timing burden;
+- replacing them with registers nearly closes timing and removes all internal
+  BRAM from the focused profile;
+- the unchanged `II=3` means the remaining initiation interval is not pure
+  local-memory port pressure. It is likely service/control resource sharing
+  inside the large phased scheduler loop.
+
+For diploma wording:
+
+```text
+Try21 shows a classic FPGA tradeoff: replacing small RAM queues with registers
+improves timing and removes BRAM pressure, but increases LUT/FF area and does
+not by itself reduce scheduler II. The next architectural issue is service
+granularity, not queue storage alone.
+```
+
+The next experiment should split scheduler services more explicitly rather than
+continue shrinking the local queue.
