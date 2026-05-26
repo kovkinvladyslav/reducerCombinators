@@ -553,3 +553,21 @@ This is a neutral negative profile result. It proves that try47's regression
 was caused by the compatibility rule-kind round trip, but it does not improve
 over try41. The next useful profile should target selected non-link
 node/status datapath structure, not selected-command classification.
+
+Try49 specializes the selected `ERASE` datapath on top of try48:
+
+```text
+hls_config_try49_direct_selected_erase_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_DIRECT_SELECTED_ERASE`, routing selected `ERASE`
+around the generic selected non-link rule-kind switch while leaving selected
+`ANNIHILATE` on the existing helper. Full CSIM and FPGA-small CSIM passed.
+Focused CSYNTH completed at `3661 LUT`, `1165 FF`, `0 DSP`, `0 BRAM`,
+scheduler `II=1`, and about `-1.16` slack with estimated Fmax `118.28 MHz`.
+
+This is a useful but insufficient profile result. It reduces LUT versus try48
+and slightly below try41, but timing is unchanged because the critical path
+still runs through selected `ERASE` node-address validation and
+`local_status_code` writeback. Future profiles should separate rare invalid
+status from the common selected-ERASE success datapath.

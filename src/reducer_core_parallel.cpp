@@ -419,6 +419,49 @@ static inline InteractionResult apply_direct_selected_annihilate_rule(
 }
 #endif
 
+#if ENABLE_PARALLEL_DIRECT_SELECTED_ERASE && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+static inline ap_uint<1> execute_selected_erase_direct(
+    PackedNode node_memory[MAXIMUM_NODE_COUNT],
+    ReducerLaneState* reducer_lane_state,
+    RedexPair active_pair_to_commit,
+    ProducedActivePairs* produced_active_pairs,
+    ReducerStatistics* reducer_statistics,
+    ap_uint<32>* local_status_code) {
+  RedexPair discarded_active_pair;
+  active_pair_queue_pop_local(reducer_lane_state, &discarded_active_pair);
+
+  initialize_produced_active_pairs(produced_active_pairs);
+
+  Port erasure_port = active_pair_to_commit.left_port;
+  Port node_port = active_pair_to_commit.right_port;
+  if (!is_erasure_port(erasure_port)) {
+    erasure_port = active_pair_to_commit.right_port;
+    node_port = active_pair_to_commit.left_port;
+  }
+
+  NodeAddress node_address = get_port_value(node_port);
+  if (node_address >= MAXIMUM_NODE_COUNT) {
+    InteractionResult unsupported_result = make_interaction_result(0);
+    unsupported_result.unsupported_interaction = 1;
+    record_parallel_error_status(
+        reducer_statistics,
+        unsupported_result,
+        local_status_code);
+    return 0;
+  }
+
+  PackedNode node_data = node_memory[node_address];
+  produced_active_pairs->produced_pairs[0].left_port = erasure_port;
+  produced_active_pairs->produced_pairs[0].right_port =
+      get_first_auxiliary_port(node_data);
+  produced_active_pairs->produced_pairs[1].left_port = erasure_port;
+  produced_active_pairs->produced_pairs[1].right_port =
+      get_second_auxiliary_port(node_data);
+  produced_active_pairs->produced_pair_count = 2;
+  return 1;
+}
+#endif
+
 static inline ap_uint<1> execute_selected_non_link_active_pair_without_queue_commit(
     PackedNode node_memory[MAXIMUM_NODE_COUNT],
     Port substitution_memory[MAXIMUM_VARIABLE_COUNT],
@@ -2227,6 +2270,17 @@ extern "C" void reducer_core_parallel(
           lane_committed = 1;
         } else if (selected_command_class == SELECTED_CLASS_ERASE ||
                    selected_command_class == SELECTED_CLASS_ANNIHILATE) {
+#if ENABLE_PARALLEL_DIRECT_SELECTED_ERASE && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+          if (selected_command_class == SELECTED_CLASS_ERASE) {
+            lane_committed = execute_selected_erase_direct(
+                node_memory,
+                &reducer_lanes[selected_command_lane_index],
+                selected_command_active_pair,
+                &selected_command_produced_active_pairs,
+                reducer_statistics,
+                &local_status_code);
+          } else {
+#endif
           InteractionRuleKind selected_non_link_rule_kind =
               (selected_command_class == SELECTED_CLASS_ERASE)
                   ? INTERACTION_RULE_ERASE
@@ -2246,6 +2300,9 @@ extern "C" void reducer_core_parallel(
               &selected_command_produced_active_pairs,
               reducer_statistics,
               &local_status_code);
+#if ENABLE_PARALLEL_DIRECT_SELECTED_ERASE && ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+          }
+#endif
         } else {
           RedexPair discarded_active_pair;
           active_pair_queue_pop_local(
