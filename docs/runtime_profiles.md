@@ -343,3 +343,20 @@ that `executed_steps` is no longer the visible limiter, but the critical path
 moves into selected-command produced-pair/status routing and
 `parallel_service_phase` selection. Therefore this completion-service gate is
 kept as documented evidence, not as the next preferred focused profile.
+
+Try37 adds a compact produced-pair-buffer profile:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_staged_link_split_classify_split_writeback_split_refill_singlepop_compact_produced_nostats.cfg
+```
+
+This enables `ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER` on top of the try35
+profile and leaves the try36 completion service disabled. Because the focused
+parallel profile disables `COMMUTE`, `OPERATE`, `SWITCH`, and `CALL`, each
+measured interaction emits at most two produced pairs. The profile therefore
+narrows `MAXIMUM_PRODUCED_ACTIVE_PAIRS_PER_INTERACTION` to `2` and the
+produced-pair counter to `2` bits only for that synthesis probe. Focused CSYNTH
+completed at `3998 LUT`, `1148 FF`, `0 DSP`, `0 BRAM`, scheduler `II=1`, and
+`-2.00` slack. This is not timing-clean, but it is the best focused parallel
+scheduler result so far and shows that profile-specific state-width reduction
+is as important as profile-specific operation gating.

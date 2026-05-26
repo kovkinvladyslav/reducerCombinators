@@ -1845,3 +1845,48 @@ The next experiment should return to try35 and target the produced-pair/status
 path directly, for example by narrowing selected-command produced-pair state or
 splitting non-link append/status work, rather than adding a generic completion
 phase.
+
+## Try37 Compact Parallel Produced-Pair Buffer
+
+Try37 implements the produced-pair state-width recommendation under:
+
+```text
+ENABLE_COMPACT_PARALLEL_PRODUCED_BUFFER
+```
+
+The gate is default-off. In the focused parallel synthesis profile, it is used
+only together with disabled `COMMUTE`, `OPERATE`, `SWITCH`, and `CALL`. Under
+that rule subset, `LINK` emits at most one produced pair and `ERASE`/
+`ANNIHILATE` emit at most two, so the generic full-runtime capacity of `17` is
+not needed. The focused produced-pair buffer is reduced to capacity `2`, and
+the produced-pair counter width is reduced to `2` bits.
+
+Full-profile CSIM and FPGA-small CSIM both passed. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try35 single-site refill pop | 4003 | 2114 | 0 | 0 | 1 | `-2.05` | `107.01 MHz` |
+| Try36 selected completion service | 4091 | 2117 | 0 | 0 | 1 | `-2.86` | `98.40 MHz` |
+| Try37 compact produced buffer | 3998 | 1148 | 0 | 0 | 1 | `-2.00` | `107.48 MHz` |
+
+This is still not timing-clean under the current clock/uncertainty settings,
+but it is the best focused parallel scheduler result so far. The design-size
+report drops to `592` final HW-transform instructions from try35's `808` and
+try36's `864`. The key FPGA lesson is that semantic-complete buffer sizing can
+pollute a focused hardware experiment: the 17-entry produced-pair array exists
+for full `CALL` expansion, not for the restricted parallel scheduler rule
+subset.
+
+For diploma wording:
+
+```text
+Try37 demonstrates why runtime profiles need not only operation gating but also
+state-width gating. Once high-fanout rules are disabled in the focused parallel
+synthesis profile, retaining a full CALL-sized produced-pair buffer synthesizes
+unnecessary registers and muxes. Narrowing that buffer preserves the measured
+rule subset and nearly halves the scheduler FF estimate.
+```
+
+The remaining critical path now points into staged `LINK` substitution read and
+append-result status handling. The next scheduler experiment should preserve
+the compact buffer and split or specialize that `LINK` append/status path.
