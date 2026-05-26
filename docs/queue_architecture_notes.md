@@ -1287,3 +1287,52 @@ architecture because it cannot demonstrate dual-lane throughput.
 The next experiment should build a two-entry command buffer. SELECT should fill
 up to two independent commands after conflict checks, while COMMIT remains the
 only owner of local/global queue counters and produced-pair cursors.
+
+## Try27 Two-Entry Selected Command Buffer
+
+Try27 follows the try26 recommendation with:
+
+```text
+ENABLE_PARALLEL_TWO_COMMAND_BUFFER
+```
+
+The focused profile keeps the same no-`LINK` structural subset as try26:
+
+```text
+VOID
+ERASE
+ANNIHILATE
+```
+
+SELECT can now capture up to two non-conflicting commands. EXECUTE consumes both
+valid command slots in the execute phase, and COMMIT serializes produced-pair
+flushes from command 0 and then command 1. Both command produced-pair buffers
+are partitioned so HLS does not infer the small local RAM that appeared in the
+first try26 measurement.
+
+Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try21 register local queues | 3914 | 2071 | 0 | 0 | 3 | `-0.02` | `136.57 MHz` |
+| Try26 single selected command | 3170 | 1503 | 0 | 0 | 2 | `+0.12` | `139.31 MHz` |
+| Try27 two-command buffer | 5700 | 1924 | 0 | 0 | 2 | `-2.76` | `99.36 MHz` |
+
+This is useful negative evidence. The two-command architecture keeps the
+registered ownership model and remains synthesizable, but duplicating
+classification, conflict, execution, and commit selection for two command slots
+costs too much LUT and timing. The loop stays at `II=2`, so the extra hardware
+does not buy a better issue interval in the focused synthesis result.
+
+For diploma wording:
+
+```text
+Try27 shows that dual-lane command capture is not enough by itself. The
+parallel reducer needs registered command ownership, but same-phase duplicated
+execution/commit datapaths are too expensive on the target Artix-7 device.
+```
+
+The next parallel attempt should preserve try26's single-command execute/commit
+datapath and add a waiting command slot or tiny issue FIFO. That would let
+SELECT observe two independent lanes without forcing HLS to duplicate the rule
+execution and produced-pair commit bodies in the same scheduler phase.

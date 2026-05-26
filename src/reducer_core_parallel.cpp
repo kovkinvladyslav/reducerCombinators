@@ -341,7 +341,7 @@ static inline ap_uint<1> lane_conflicts_with_committed_work(
   return 0;
 }
 
-#if ENABLE_PARALLEL_PAIRWISE_SELECT
+#if ENABLE_PARALLEL_PAIRWISE_SELECT || ENABLE_PARALLEL_TWO_COMMAND_BUFFER
 static inline ap_uint<1> pair_ports_touch_same_binary_node(
     Port first_left_port,
     Port first_right_port,
@@ -713,6 +713,21 @@ extern "C" void reducer_core_parallel(
   ProducedActivePairs selected_command_produced_active_pairs;
   ProducedPairCount selected_command_produced_pair_index = 0;
 #endif
+#if ENABLE_PARALLEL_TWO_COMMAND_BUFFER
+  ap_uint<1> command0_valid = 0;
+  ap_uint<1> command0_lane_index = 0;
+  RedexPair command0_active_pair;
+  InteractionRuleKind command0_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+  ProducedActivePairs command0_produced_active_pairs;
+  ProducedPairCount command0_produced_pair_index = 0;
+
+  ap_uint<1> command1_valid = 0;
+  ap_uint<1> command1_lane_index = 0;
+  RedexPair command1_active_pair;
+  InteractionRuleKind command1_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+  ProducedActivePairs command1_produced_active_pairs;
+  ProducedPairCount command1_produced_pair_index = 0;
+#endif
 #pragma HLS ARRAY_PARTITION variable=phased_candidate_active_pairs complete dim=1
 #pragma HLS ARRAY_PARTITION variable=phased_candidate_rule_kinds complete dim=1
 #pragma HLS ARRAY_PARTITION variable=phased_lane_should_commit complete dim=1
@@ -721,6 +736,12 @@ extern "C" void reducer_core_parallel(
 #if ENABLE_PARALLEL_SELECTED_COMMAND
 #pragma HLS ARRAY_PARTITION variable=selected_command_produced_active_pairs.produced_pairs complete dim=1
   initialize_produced_active_pairs(&selected_command_produced_active_pairs);
+#endif
+#if ENABLE_PARALLEL_TWO_COMMAND_BUFFER
+#pragma HLS ARRAY_PARTITION variable=command0_produced_active_pairs.produced_pairs complete dim=1
+#pragma HLS ARRAY_PARTITION variable=command1_produced_active_pairs.produced_pairs complete dim=1
+  initialize_produced_active_pairs(&command0_produced_active_pairs);
+  initialize_produced_active_pairs(&command1_produced_active_pairs);
 #endif
   for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
 #pragma HLS UNROLL
@@ -829,7 +850,75 @@ extern "C" void reducer_core_parallel(
       }
       parallel_service_phase = PARALLEL_SERVICE_SELECT;
     } else if (parallel_service_phase == PARALLEL_SERVICE_SELECT) {
-#if ENABLE_PARALLEL_SELECTED_COMMAND
+#if ENABLE_PARALLEL_TWO_COMMAND_BUFFER
+      command0_valid = 0;
+      command0_lane_index = 0;
+      command0_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+      command0_produced_pair_index = 0;
+      initialize_produced_active_pairs(&command0_produced_active_pairs);
+
+      command1_valid = 0;
+      command1_lane_index = 0;
+      command1_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+      command1_produced_pair_index = 0;
+      initialize_produced_active_pairs(&command1_produced_active_pairs);
+
+      RedexPair lane0_candidate_active_pair;
+      RedexPair lane1_candidate_active_pair;
+      ap_uint<1> lane0_has_candidate =
+          active_pair_queue_peek_local(&reducer_lanes[0], &lane0_candidate_active_pair);
+      ap_uint<1> lane1_has_candidate =
+          active_pair_queue_peek_local(&reducer_lanes[1], &lane1_candidate_active_pair);
+
+      if (lane0_has_candidate && executed_steps < maximum_steps) {
+        command0_valid = 1;
+        command0_lane_index = 0;
+        command0_active_pair = lane0_candidate_active_pair;
+        command0_rule_kind = get_interaction_rule_kind(
+            lane0_candidate_active_pair.left_port,
+            lane0_candidate_active_pair.right_port);
+      }
+
+      if (lane1_has_candidate &&
+          executed_steps + command0_valid < maximum_steps) {
+        InteractionRuleKind lane1_rule_kind = get_interaction_rule_kind(
+            lane1_candidate_active_pair.left_port,
+            lane1_candidate_active_pair.right_port);
+        ap_uint<1> lane1_conflicts =
+            command0_valid &&
+            pairwise_active_pairs_conflict(
+                lane1_candidate_active_pair,
+                lane1_rule_kind,
+                command0_active_pair,
+                command0_rule_kind,
+                reducer_statistics);
+        if (lane1_conflicts) {
+          increment_lane_stall_counter(reducer_statistics, 1);
+        } else if (command0_valid) {
+          command1_valid = 1;
+          command1_lane_index = 1;
+          command1_active_pair = lane1_candidate_active_pair;
+          command1_rule_kind = lane1_rule_kind;
+        } else {
+          command0_valid = 1;
+          command0_lane_index = 1;
+          command0_active_pair = lane1_candidate_active_pair;
+          command0_rule_kind = lane1_rule_kind;
+        }
+      }
+
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+      if (command0_valid && command1_valid) {
+        reducer_statistics->dual_commit_cycle_count =
+            reducer_statistics->dual_commit_cycle_count + 1;
+      }
+#endif
+      if (command0_valid || command1_valid) {
+        parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+      } else {
+        parallel_service_phase = PARALLEL_SERVICE_REFILL;
+      }
+#elif ENABLE_PARALLEL_SELECTED_COMMAND
       selected_command_valid = 0;
       selected_command_lane_index = 0;
       selected_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
@@ -964,7 +1053,51 @@ extern "C" void reducer_core_parallel(
       }
 #endif
     } else if (parallel_service_phase == PARALLEL_SERVICE_EXECUTE) {
-#if ENABLE_PARALLEL_SELECTED_COMMAND
+#if ENABLE_PARALLEL_TWO_COMMAND_BUFFER
+      if (command0_valid && local_status_code == REDUCER_STATUS_SUCCESS) {
+        ap_uint<1> lane_committed = execute_lane_active_pair_without_queue_commit(
+            node_memory,
+            substitution_memory,
+            book_definition_headers,
+            book_redex_memory,
+            book_node_memory,
+            book_definition_count,
+            &reducer_lanes[command0_lane_index],
+            allocated_node_count,
+            allocated_variable_count,
+            command0_active_pair,
+            command0_rule_kind,
+            &command0_produced_active_pairs,
+            reducer_statistics,
+            &local_status_code);
+        if (lane_committed) {
+          executed_steps = executed_steps + 1;
+          increment_lane_committed_step_counter(reducer_statistics, command0_lane_index);
+        }
+      }
+      if (command1_valid && local_status_code == REDUCER_STATUS_SUCCESS) {
+        ap_uint<1> lane_committed = execute_lane_active_pair_without_queue_commit(
+            node_memory,
+            substitution_memory,
+            book_definition_headers,
+            book_redex_memory,
+            book_node_memory,
+            book_definition_count,
+            &reducer_lanes[command1_lane_index],
+            allocated_node_count,
+            allocated_variable_count,
+            command1_active_pair,
+            command1_rule_kind,
+            &command1_produced_active_pairs,
+            reducer_statistics,
+            &local_status_code);
+        if (lane_committed) {
+          executed_steps = executed_steps + 1;
+          increment_lane_committed_step_counter(reducer_statistics, command1_lane_index);
+        }
+      }
+      parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#elif ENABLE_PARALLEL_SELECTED_COMMAND
       if (selected_command_valid && local_status_code == REDUCER_STATUS_SUCCESS) {
         ap_uint<1> lane_committed = execute_lane_active_pair_without_queue_commit(
             node_memory,
@@ -1016,7 +1149,54 @@ extern "C" void reducer_core_parallel(
       parallel_service_phase = PARALLEL_SERVICE_COMMIT;
 #endif
     } else {
-#if ENABLE_PARALLEL_SELECTED_COMMAND
+#if ENABLE_PARALLEL_TWO_COMMAND_BUFFER
+      ap_uint<1> command0_has_pending_pair =
+          command0_valid &&
+          command0_produced_pair_index <
+              command0_produced_active_pairs.produced_pair_count;
+      ap_uint<1> command1_has_pending_pair =
+          command1_valid &&
+          command1_produced_pair_index <
+              command1_produced_active_pairs.produced_pair_count;
+
+      if (!command0_has_pending_pair && !command1_has_pending_pair) {
+        command0_valid = 0;
+        command1_valid = 0;
+        parallel_service_phase = PARALLEL_SERVICE_REFILL;
+      } else if (command0_has_pending_pair &&
+                 local_status_code == REDUCER_STATUS_SUCCESS) {
+        if (!commit_one_phased_produced_pair(
+                &reducer_lanes[command0_lane_index],
+                global_active_pair_memory,
+                &global_queue_tail_index,
+                &global_queue_count_value,
+                &command0_produced_active_pairs,
+                &command0_produced_pair_index,
+                reducer_statistics)) {
+#if ENABLE_REDUCER_STATISTICS
+          reducer_statistics->redex_queue_overflow_count =
+              reducer_statistics->redex_queue_overflow_count + 1;
+#endif
+          local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
+        }
+      } else if (command1_has_pending_pair &&
+                 local_status_code == REDUCER_STATUS_SUCCESS) {
+        if (!commit_one_phased_produced_pair(
+                &reducer_lanes[command1_lane_index],
+                global_active_pair_memory,
+                &global_queue_tail_index,
+                &global_queue_count_value,
+                &command1_produced_active_pairs,
+                &command1_produced_pair_index,
+                reducer_statistics)) {
+#if ENABLE_REDUCER_STATISTICS
+          reducer_statistics->redex_queue_overflow_count =
+              reducer_statistics->redex_queue_overflow_count + 1;
+#endif
+          local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
+        }
+      }
+#elif ENABLE_PARALLEL_SELECTED_COMMAND
       if (!selected_command_valid ||
           selected_command_produced_pair_index >=
               selected_command_produced_active_pairs.produced_pair_count) {
