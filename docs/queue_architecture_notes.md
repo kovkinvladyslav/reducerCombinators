@@ -1101,3 +1101,50 @@ The next parallel queue/control architecture should use a true service-loop
 split or a top-level FSM in which each service owns a narrower loop body. The
 goal should be explicit memory and counter ownership, not merely non-inlined
 helper functions.
+
+## Try23 Unpipelined Parent Dispatch
+
+Try23 follows the try22 conclusion by changing the scheduler constraint instead
+of the C++ helper structure. The focused build keeps the try21 no-`LINK`
+structural rule subset and register-backed local queues, but omits the parent
+`PIPELINE II=1` pragma on the phased scheduler loop:
+
+```text
+ENABLE_PARALLEL_UNPIPELINED_SERVICE_DISPATCH=1
+```
+
+Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try21 parent pipeline, register queues | 3914 | 2071 | 0 | 0 | 3 | `-0.02` | `136.57 MHz` |
+| Try22 helper-factored services | 6309 | 5390 | 0 | 0 | 6 | `-3.76` | `90.42 MHz` |
+| Try23 unpipelined parent dispatch | 4124 | 1863 | 0 | 0 | n/a | `-2.19` | `105.35 MHz` |
+
+Vitis reported:
+
+```text
+Loop Constraint Status: All loop constraints were satisfied.
+```
+
+The parent scheduler loop is no longer pipelined, so the report does not provide
+a meaningful active-pair issue interval. Its iteration latency is reported as
+`2 ~ 89` cycles. This makes try23 a diagnostic result rather than a final
+throughput architecture.
+
+The useful evidence is the contrast with try22. Removing the parent pipeline
+constraint avoids helper-instance overhead and keeps area close to try21. That
+supports the conclusion that the try21 `II=3` was partly caused by forcing all
+service branches into one parent pipeline schedule.
+
+The remaining long path appears in conflict checking:
+
+```text
+lane_conflicts_with_committed_work
+```
+
+with reported latency up to `41` cycles and timing slack `-0.92`. For the fixed
+two-lane reducer, the next useful architecture is therefore not another generic
+service-dispatch probe. It should simplify the select/conflict service itself,
+for example by replacing the generic committed-work loop with a direct two-lane
+pairwise comparator.

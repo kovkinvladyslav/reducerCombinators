@@ -597,7 +597,9 @@ extern "C" void reducer_core_parallel(
       executed_steps < maximum_steps &&
 #endif
       local_status_code == REDUCER_STATUS_SUCCESS) {
+#if !ENABLE_PARALLEL_UNPIPELINED_SERVICE_DISPATCH
 #pragma HLS PIPELINE II=1
+#endif
 #if ENABLE_PARALLEL_SERVICE_PHASE
 #if ENABLE_PARALLEL_SERVICE_HELPERS
     if (parallel_service_phase == PARALLEL_SERVICE_REFILL) {
