@@ -125,6 +125,8 @@ The project currently provides:
 | `hls_config_synth_fpga_small.cfg` | Lean FPGA-small synthesis config |
 | `hls_config_synth_full_nostats.cfg` | Full-profile synthesis probe with statistics disabled |
 | `hls_config_synth_full_staged_call_nostats.cfg` | Full-profile synthesis probe with statistics disabled and staged `CALL` enabled |
+| `hls_config_full_compact_service_phase.cfg` | Full-profile CSIM checkpoint with staged `CALL` and the compact service-phase architecture enabled |
+| `hls_config_synth_full_compact_service_phase_nostats.cfg` | Full-profile synthesis checkpoint with statistics disabled and compact service-phase architecture enabled |
 | `hls_config_synth_fpga_small_nostats.cfg` | FPGA-small synthesis probe with statistics disabled |
 | `hls_config_synth_fpga_small_nostats_nocall.cfg` | FPGA-small synthesis probe with statistics and `CALL` disabled |
 | `hls_config_synth_fpga_small_staged_call.cfg` | FPGA-small synthesis probe with staged single-lane `CALL` enabled |
@@ -205,6 +207,26 @@ normal dispatch as one compact service phase. Try10 preserved final loop `II=1`
 and produced `9646 LUT`, `4356 FF`, and `2 DSP`. The estimated clock improved
 from `8.510 ns` to `7.287 ns`, and the top-level timing estimate improved from
 `-1.21` slack to `+0.01`.
+
+The full compact-service-phase configs are milestone checkpoints, not the normal
+per-try synthesis target. They restore the full numeric subsystem while keeping
+the current staged `CALL` and compact reducer service controller enabled. This
+answers a different question from the FPGA-small runs: whether the improved
+runtime controller still helps when complete numeric semantics are present, or
+whether the synthesis result is again dominated by `F24`, division, remainder,
+`fmod`, and full numeric comparison hardware.
+
+Try12 ran this checkpoint. Full-profile CSIM passed, and full-profile
+no-statistics CSYNTH completed at `18061 LUT`, `9785 FF`, `12 DSP`, and main
+reducer-loop `II=1`, with estimated Fmax `137.04 MHz`. This is materially
+smaller and cleaner than the early try1 full staged/no-statistics reference
+(`48457 LUT`, `32215 FF`, `49 DSP`, `II=67`). The report still shows the numeric
+subsystem as the largest area source: `apply_numeric_operation` alone accounts
+for `9175 LUT`, `5306 FF`, and `10 DSP`.
+
+For Chapter 4, this split should be reported explicitly. FPGA-small CSYNTH is
+the clean measurement for queue/control/runtime architecture changes. Full
+CSYNTH is a milestone reference for the complete semantic profile.
 
 ## Suggested Diploma Wording
 

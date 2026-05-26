@@ -447,3 +447,58 @@ are service metadata that only matters when statistics are enabled, or a
 separate full-profile synthesis checkpoint to see how the improved controller
 behaves when complete numeric semantics are restored. Repeating source-level
 factoring around produced-buffer activation is unlikely to change hardware.
+
+## Try12 Full-Profile Checkpoint
+
+Try12 is a measurement checkpoint rather than a new small-profile queue
+architecture. It keeps the current compact-service architecture and restores the
+full numeric profile for CSIM/CSYNTH:
+
+```text
+staged CALL
++ produced-pair buffer
++ deferred completion accounting
++ selective small-rule inlining
++ compact completion state
++ compact service phase
++ full numeric subsystem
+```
+
+This matters because tries 2 through 11 used FPGA-small synthesis to isolate
+runtime structure from known expensive numeric datapaths. That was the right
+measurement for queue ownership and control-path experiments, but it leaves one
+milestone question open: what does the best current controller look like when
+full prototype semantics are restored?
+
+The expected result is not necessarily a small design. If full-profile CSYNTH
+returns to high LUT/FF/DSP use or a worse `II`, that is still useful evidence:
+the controller can be FPGA-feasible while full numeric support remains a
+separate resource policy problem. If full-profile CSYNTH improves over the try1
+full staged/no-statistics reference, then the service-phase work helped even
+under the complete profile.
+
+Record the result against these references:
+
+| Build | LUT | FF | DSP | Main loop II | Meaning |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Try1 full staged/no-stats | 48457 | 32215 | 49 | 67 | early full-profile staged `CALL` reference |
+| Try10/11 FPGA-small compact service | 9646 | 4356 | 2 | 1 | current FPGA-feasible runtime-controller baseline |
+| Try12 full compact service | 18061 | 9785 | 12 | 1 | current milestone full-profile checkpoint |
+
+Try12 full-profile CSIM passed and full-profile no-statistics CSYNTH completed.
+The important architectural result is that the compact service controller
+survives the complete semantic profile: the main reducer pipeline reports
+`II=1`, and Vitis reports all loop constraints satisfied. The resource increase
+over FPGA-small is real but localized. The report attributes `9175 LUT`,
+`5306 FF`, and `10 DSP` to `apply_numeric_operation`, with generated hardware
+for floating-point division, multiplication, comparison, `fmod`, and integer
+division/remainder.
+
+For diploma wording, this is the clean comparison:
+
+- The staged/compact runtime controller is synthesizable in both profiles.
+- FPGA-small is still the best per-try architecture signal because it isolates
+  queue, `CALL`, and reducer-control behavior.
+- Full-profile synthesis is now a milestone evidence point rather than a
+  dead-end: it proves complete semantics can synthesize, but numeric policy is
+  the next major resource question.
