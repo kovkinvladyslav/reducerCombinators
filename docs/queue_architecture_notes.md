@@ -1242,3 +1242,48 @@ The next parallel try should keep the structural rule subset and add a real
 selected-lane command/writeback boundary. SELECT should produce a small command
 register, EXECUTE should consume that command, and COMMIT should be the only
 phase that mutates local/global queue counters.
+
+## Try26 Single Selected-Lane Command Register
+
+Try26 follows the try25 recommendation with a gated selected-command path:
+
+```text
+ENABLE_PARALLEL_SELECTED_COMMAND
+```
+
+The focused profile keeps the try21/try24 no-`LINK` structural subset
+(`VOID`, `ERASE`, `ANNIHILATE`) and register-backed lane queues, but SELECT now
+writes one selected-lane command instead of carrying two-lane candidate,
+commit, and produced-pair state into EXECUTE/COMMIT. EXECUTE consumes that
+command, and COMMIT flushes that command's produced pairs.
+
+This is intentionally diagnostic. It sacrifices dual issue in order to measure
+whether registered command/writeback ownership is the correct hardware
+direction.
+
+The first synthesis exposed a tiny local memory issue: the selected command's
+produced-pair buffer was inferred as a 17-entry RAM and the loop reported a
+`Memory Dependency`. Partitioning that selected buffer removed the local memory
+and changed the remaining limiter to `Resource Limitation`.
+
+Final focused synthesis:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try21 register local queues | 3914 | 2071 | 0 | 0 | 3 | `-0.02` | `136.57 MHz` |
+| Try24 fixed pairwise select | 3913 | 2070 | 0 | 0 | 3 | `-0.02` | `136.57 MHz` |
+| Try25 `VOID` only | 2730 | 1469 | 0 | 0 | 1 | `-9.15` | `60.78 MHz` |
+| Try26 single selected command | 3170 | 1503 | 0 | 0 | 2 | `+0.12` | `139.31 MHz` |
+
+Interpretation:
+
+```text
+Registered command ownership is more useful than further conflict-check
+specialization. It reduces the focused parallel scheduler's II from 3 to 2 and
+keeps timing positive, but the one-command version is not the final parallel
+architecture because it cannot demonstrate dual-lane throughput.
+```
+
+The next experiment should build a two-entry command buffer. SELECT should fill
+up to two independent commands after conflict checks, while COMMIT remains the
+only owner of local/global queue counters and produced-pair cursors.
