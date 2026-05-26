@@ -1437,3 +1437,67 @@ command/writeback boundary. A focused staged-`LINK` try should split
 substitution handling into read, decide, and write service ticks, then measure
 whether the focused structural profile can keep `LINK` enabled with positive
 timing.
+
+## Try30 Staged LINK For Selected Command
+
+Try30 implements the staged-`LINK` recommendation from try29 under:
+
+```text
+ENABLE_PARALLEL_STAGED_LINK
+```
+
+The gate is default-off. In the focused selected-command profile, a selected
+`LINK` no longer calls the complete inline `apply_lane_link_rule`. Instead, it
+uses small service ticks:
+
+```text
+begin LINK and pop local active pair
+read previous substitution binding
+decide/write substitution result and optionally emit produced pair
+commit produced pairs through the existing selected-command commit service
+```
+
+The first staged version still let the generic non-`LINK` execute helper carry
+`apply_lane_link_rule`. The corrected version added a focused
+`execute_selected_non_link_active_pair_without_queue_commit` helper so the
+selected-command non-`LINK` path does not reintroduce the old `LINK` body.
+
+Full-profile CSIM and normal FPGA-small CSIM both passed. Corrected focused
+synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try26 selected command without `LINK` | 3170 | 1503 | 0 | 0 | 2 | `+0.12` | `139.31 MHz` |
+| Try29 selected command with inline `LINK` | 3558 | 1422 | 0 | 0 | 2 | `-2.00` | `107.48 MHz` |
+| Try30 selected command with staged `LINK` | 4770 | 2677 | 0 | 0 | 1 | `-7.29` | `68.57 MHz` |
+
+This is a useful mixed result. The positive evidence is that staging `LINK`
+removes the substitution-memory dependency from the reported limiter and
+reaches scheduler `II=1`. The negative evidence is that timing becomes much
+worse, and area rises sharply. The new reported critical path starts at global
+active-pair memory refill/queue selection and runs through interaction-rule
+classification into selected-command rule-kind/control storage.
+
+For diploma wording:
+
+```text
+Try30 confirms that LINK needs a service boundary: splitting substitution read
+and write is enough to remove the substitution-memory II limiter. However, a
+service boundary inserted inside the same parent SELECT/EXECUTE pipeline merely
+moves the problem into broad command-control logic. The next design must also
+register the selected command before classification/execution.
+```
+
+The next parallel experiment should preserve staged `LINK` but split SELECT
+itself into narrower services. A useful next boundary is:
+
+```text
+refill
+capture selected active pair
+classify selected rule
+execute or advance staged LINK
+commit produced pair
+```
+
+This tests whether the `II=1` gain from staged `LINK` can be kept while
+recovering timing from the selected-command classification path.

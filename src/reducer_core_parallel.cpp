@@ -233,6 +233,87 @@ static inline ap_uint<1> execute_lane_active_pair_without_queue_commit(
   return 1;
 }
 
+#if ENABLE_PARALLEL_STAGED_LINK
+static inline ap_uint<1> execute_selected_non_link_active_pair_without_queue_commit(
+    PackedNode node_memory[MAXIMUM_NODE_COUNT],
+    Port substitution_memory[MAXIMUM_VARIABLE_COUNT],
+    BookDefinitionHeader book_definition_headers[MAXIMUM_BOOK_DEFINITION_COUNT],
+    RedexPair book_redex_memory[MAXIMUM_BOOK_REDEX_COUNT],
+    PackedNode book_node_memory[MAXIMUM_BOOK_NODE_COUNT],
+    ap_uint<32> book_definition_count,
+    ReducerLaneState* reducer_lane_state,
+    ap_uint<32>* allocated_node_count,
+    ap_uint<32>* allocated_variable_count,
+    RedexPair active_pair_to_commit,
+    InteractionRuleKind interaction_rule_kind,
+    ProducedActivePairs* produced_active_pairs,
+    ReducerStatistics* reducer_statistics,
+    ap_uint<32>* local_status_code) {
+  RedexPair discarded_active_pair;
+  active_pair_queue_pop_local(reducer_lane_state, &discarded_active_pair);
+
+  initialize_produced_active_pairs(produced_active_pairs);
+
+  InteractionResult interaction_result = make_interaction_result(0);
+  switch (interaction_rule_kind) {
+    case INTERACTION_RULE_VOID:
+      interaction_result = apply_void_rule();
+      break;
+#if ENABLE_RULE_ERASE
+    case INTERACTION_RULE_ERASE:
+      interaction_result = apply_lane_erase_rule(
+          node_memory,
+          produced_active_pairs,
+          active_pair_to_commit.left_port,
+          active_pair_to_commit.right_port);
+      break;
+#endif
+#if ENABLE_RULE_ANNIHILATE
+    case INTERACTION_RULE_ANNIHILATE:
+      interaction_result = apply_lane_annihilate_rule(
+          node_memory,
+          produced_active_pairs,
+          active_pair_to_commit.left_port,
+          active_pair_to_commit.right_port);
+      break;
+#endif
+#if ENABLE_RULE_COMMUTE || ENABLE_RULE_OPERATE || ENABLE_RULE_SWITCH || ENABLE_RULE_CALL
+    default:
+      interaction_result = apply_lane_interaction_rule(
+          node_memory,
+          substitution_memory,
+          produced_active_pairs,
+          book_definition_headers,
+          book_redex_memory,
+          book_node_memory,
+          book_definition_count,
+          allocated_node_count,
+          allocated_variable_count,
+          active_pair_to_commit.left_port,
+          active_pair_to_commit.right_port,
+          interaction_rule_kind,
+          local_status_code,
+          reducer_statistics);
+      break;
+#else
+    default:
+      interaction_result.unsupported_interaction = 1;
+      break;
+#endif
+  }
+
+  if (!interaction_result.success) {
+    record_parallel_error_status(reducer_statistics, interaction_result, local_status_code);
+    return 0;
+  }
+
+#if ENABLE_REDUCER_STATISTICS
+  count_executed_rule(reducer_statistics, interaction_rule_kind);
+#endif
+  return 1;
+}
+#endif
+
 static inline ap_uint<1> commit_one_phased_produced_pair(
     ReducerLaneState* reducer_lane_state,
     RedexPair global_active_pair_memory[MAXIMUM_REDEX_COUNT],
@@ -712,6 +793,13 @@ extern "C" void reducer_core_parallel(
   InteractionRuleKind selected_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
   ProducedActivePairs selected_command_produced_active_pairs;
   ProducedPairCount selected_command_produced_pair_index = 0;
+#if ENABLE_PARALLEL_STAGED_LINK
+  ap_uint<1> selected_command_link_active = 0;
+  ap_uint<2> selected_command_link_stage = PARALLEL_LINK_STAGE_IDLE;
+  PortValue selected_command_link_variable_index = 0;
+  Port selected_command_link_other_port = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+  Port selected_command_link_previous_port = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+#endif
 #endif
 #if ENABLE_PARALLEL_TWO_COMMAND_BUFFER
   ap_uint<1> command0_valid = 0;
@@ -1023,6 +1111,10 @@ extern "C" void reducer_core_parallel(
       selected_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
       selected_command_produced_pair_index = 0;
       initialize_produced_active_pairs(&selected_command_produced_active_pairs);
+#if ENABLE_PARALLEL_STAGED_LINK
+      selected_command_link_active = 0;
+      selected_command_link_stage = PARALLEL_LINK_STAGE_IDLE;
+#endif
 
       for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
 #pragma HLS UNROLL
@@ -1224,6 +1316,115 @@ extern "C" void reducer_core_parallel(
       parallel_service_phase = PARALLEL_SERVICE_COMMIT;
 #elif ENABLE_PARALLEL_SELECTED_COMMAND
       if (selected_command_valid && local_status_code == REDUCER_STATUS_SUCCESS) {
+#if ENABLE_PARALLEL_STAGED_LINK && ENABLE_RULE_LINK
+        if (selected_command_rule_kind == INTERACTION_RULE_LINK) {
+          if (!selected_command_link_active) {
+            RedexPair discarded_active_pair;
+            active_pair_queue_pop_local(
+                &reducer_lanes[selected_command_lane_index],
+                &discarded_active_pair);
+
+            Port variable_port = selected_command_active_pair.left_port;
+            Port other_port = selected_command_active_pair.right_port;
+
+            if (!is_variable_port(variable_port) && is_variable_port(other_port)) {
+              variable_port = selected_command_active_pair.right_port;
+              other_port = selected_command_active_pair.left_port;
+            }
+
+            if (!is_variable_port(variable_port)) {
+              if (!append_produced_active_pair(
+                      &selected_command_produced_active_pairs,
+                      selected_command_active_pair.left_port,
+                      selected_command_active_pair.right_port)) {
+#if ENABLE_REDUCER_STATISTICS
+                reducer_statistics->redex_queue_overflow_count =
+                    reducer_statistics->redex_queue_overflow_count + 1;
+#endif
+                local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
+              } else {
+#if ENABLE_REDUCER_STATISTICS
+                count_executed_rule(reducer_statistics, selected_command_rule_kind);
+#endif
+                executed_steps = executed_steps + 1;
+                increment_lane_committed_step_counter(
+                    reducer_statistics,
+                    selected_command_lane_index);
+              }
+              parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+            } else {
+              PortValue variable_index = get_port_value(variable_port);
+              if (variable_index >= MAXIMUM_VARIABLE_COUNT) {
+#if ENABLE_REDUCER_STATISTICS
+                reducer_statistics->unsupported_interaction_count =
+                    reducer_statistics->unsupported_interaction_count + 1;
+#endif
+                local_status_code = REDUCER_STATUS_UNSUPPORTED_INTERACTION;
+                parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+              } else {
+                selected_command_link_active = 1;
+                selected_command_link_stage = PARALLEL_LINK_STAGE_READ_PREVIOUS;
+                selected_command_link_variable_index = variable_index;
+                selected_command_link_other_port = other_port;
+                parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+              }
+            }
+          } else if (selected_command_link_stage == PARALLEL_LINK_STAGE_READ_PREVIOUS) {
+            selected_command_link_previous_port =
+                substitution_memory[selected_command_link_variable_index];
+            selected_command_link_stage = PARALLEL_LINK_STAGE_WRITE_RESULT;
+            parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+          } else {
+            Port unbound_marker = make_port(PORT_TAG_REFERENCE, INVALID_PORT_VALUE);
+            if (selected_command_link_previous_port == unbound_marker) {
+              substitution_memory[selected_command_link_variable_index] =
+                  selected_command_link_other_port;
+            } else {
+              substitution_memory[selected_command_link_variable_index] = unbound_marker;
+              if (!append_produced_active_pair(
+                      &selected_command_produced_active_pairs,
+                      selected_command_link_previous_port,
+                      selected_command_link_other_port)) {
+#if ENABLE_REDUCER_STATISTICS
+                reducer_statistics->redex_queue_overflow_count =
+                    reducer_statistics->redex_queue_overflow_count + 1;
+#endif
+                local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
+              }
+            }
+
+            selected_command_link_active = 0;
+            selected_command_link_stage = PARALLEL_LINK_STAGE_IDLE;
+            if (local_status_code == REDUCER_STATUS_SUCCESS) {
+#if ENABLE_REDUCER_STATISTICS
+              count_executed_rule(reducer_statistics, selected_command_rule_kind);
+#endif
+              executed_steps = executed_steps + 1;
+              increment_lane_committed_step_counter(
+                  reducer_statistics,
+                  selected_command_lane_index);
+            }
+            parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+          }
+        } else {
+#endif
+#if ENABLE_PARALLEL_STAGED_LINK
+        ap_uint<1> lane_committed = execute_selected_non_link_active_pair_without_queue_commit(
+            node_memory,
+            substitution_memory,
+            book_definition_headers,
+            book_redex_memory,
+            book_node_memory,
+            book_definition_count,
+            &reducer_lanes[selected_command_lane_index],
+            allocated_node_count,
+            allocated_variable_count,
+            selected_command_active_pair,
+            selected_command_rule_kind,
+            &selected_command_produced_active_pairs,
+            reducer_statistics,
+            &local_status_code);
+#else
         ap_uint<1> lane_committed = execute_lane_active_pair_without_queue_commit(
             node_memory,
             substitution_memory,
@@ -1239,12 +1440,16 @@ extern "C" void reducer_core_parallel(
             &selected_command_produced_active_pairs,
             reducer_statistics,
             &local_status_code);
+#endif
         if (lane_committed) {
           executed_steps = executed_steps + 1;
           increment_lane_committed_step_counter(reducer_statistics, selected_command_lane_index);
         }
+        parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#if ENABLE_PARALLEL_STAGED_LINK && ENABLE_RULE_LINK
+        }
+#endif
       }
-      parallel_service_phase = PARALLEL_SERVICE_COMMIT;
 #else
       for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
 #pragma HLS UNROLL

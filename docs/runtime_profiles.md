@@ -134,6 +134,7 @@ The project currently provides:
 | `hls_config_synth_parallel_fpga_small_structural_phased_nolink_regqueue_two_command_nostats.cfg` | Failed diagnostic structural parallel probe that extends the selected-command idea to two command slots; synthesis completes but duplicated execute/commit datapaths raise LUT and break timing |
 | `hls_config_synth_parallel_fpga_small_structural_phased_nolink_regqueue_waiting_command_nostats.cfg` | Failed diagnostic structural parallel probe with one active selected command plus one waiting command slot; avoids duplicated datapaths but adds timing-heavy command-control state |
 | `hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_nostats.cfg` | Failed diagnostic structural parallel probe that restores `LINK` on the try26 selected-command boundary; confirms that the substitution-memory read/previous-port/status path is the remaining timing limiter |
+| `hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_staged_link_nostats.cfg` | Failed-but-informative structural parallel probe that stages selected-command `LINK`; reaches scheduler `II=1`, but fails timing because SELECT/classification/control becomes the new critical path |
 | `hls_config_fpga_small.cfg` | Single-lane reducer with `FPGA_SMALL_PROFILE` enabled |
 | `hls_config_synth_full.cfg` | Lean full-profile synthesis config |
 | `hls_config_synth_fpga_small.cfg` | Lean FPGA-small synthesis config |
