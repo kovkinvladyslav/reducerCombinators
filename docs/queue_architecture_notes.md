@@ -2742,3 +2742,60 @@ organization.
 
 The next experiment should target the global `local_status_code` and loop
 condition path directly, rather than adding more selected-rule staging.
+
+## Try54 Focused Success-Only Scheduler Status
+
+Try54 tests the try53 recommendation under:
+
+```text
+ENABLE_PARALLEL_ASSUME_VALID_SELECTED_COMMANDS
+```
+
+The profile keeps the try53 selected `ERASE` request/read/emit service, but
+removes selected-command status writes and the hot-loop `local_status_code`
+condition from the measured focused profile. This is not a full semantic
+replacement; it is a valid-graph synthesis profile used to measure how much
+the scheduler-wide status path costs.
+
+Full-profile CSIM and FPGA-small CSIM passed with the new gate disabled in
+normal configs. Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try53 ERASE-only service | 3549 | 1260 | 0 | 0 | 1 | `~ -1.307` | `116.18 MHz` |
+| Try54 success-only status | 3302 | 1164 | 0 | 0 | 1 | `~ -0.935` | `121.44 MHz` |
+
+This is positive evidence but still not a timing-closed result. Removing the
+hot status path improves area and timing:
+
+- LUT decreases by `247`;
+- FF decreases by `96`;
+- estimated Fmax improves by `5.26 MHz`;
+- scheduler `II=1` is preserved.
+
+Most importantly, the critical path moves away from `local_status_code`:
+
+```text
+active_pair_queue local queue read/update
+candidate_active_pair.left_port sparsemux/select
+selected_command_active_pair.left_port
+selected_command_lane_index_write_ln1086
+```
+
+For diploma wording:
+
+```text
+Try54 demonstrates that scheduler status/error reporting was a real hardware
+cost. Removing it from a valid-graph focused profile improves LUT, FF, and
+Fmax while preserving II=1. The remaining critical path is now selected-command
+capture: selecting a lane, reading its local queue, and writing the selected
+command register in one scheduler iteration.
+```
+
+The next experiment should not further weaken status handling or keep tuning
+selected `ERASE`. The new bottleneck is selected-command capture/refill. A
+useful next step is a two-tick selected-command capture:
+
+```text
+SELECT_SCAN -> SELECT_CAPTURE -> CLASSIFY/EXECUTE
+```
