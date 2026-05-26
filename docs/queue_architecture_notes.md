@@ -1148,3 +1148,49 @@ two-lane reducer, the next useful architecture is therefore not another generic
 service-dispatch probe. It should simplify the select/conflict service itself,
 for example by replacing the generic committed-work loop with a direct two-lane
 pairwise comparator.
+
+## Try24 Fixed Two-Lane Pairwise Select
+
+Try24 follows the conflict-check recommendation from try23. The focused profile
+keeps the try21 parent pipeline, no-`LINK` structural rule subset, and
+register-backed local queues, but enables:
+
+```text
+ENABLE_PARALLEL_PAIRWISE_SELECT=1
+```
+
+Instead of using the generic committed-work loop in SELECT, lane 0 is accepted
+first when eligible, and lane 1 is accepted only when it does not conflict with
+lane 0. The pairwise conflict check preserves the same conservative cases:
+
+- unsupported rules conflict;
+- `VOID`/`VOID` does not conflict;
+- same binary node conflicts;
+- allocation contention conflicts;
+- bank conflicts remain metrics only when statistics are enabled.
+
+Focused synthesis completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Violation | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| Try21 generic select/conflict | 3914 | 2071 | 0 | 0 | 3 | Resource Limitation | `-0.02` | `136.57 MHz` |
+| Try24 fixed pairwise select | 3913 | 2070 | 0 | 0 | 3 | Resource Limitation | `-0.02` | `136.57 MHz` |
+
+The result is almost identical to try21. That means the long conflict-check path
+seen in try23 was mainly exposed by removing the parent pipeline; it is not the
+active limiter in the real pipelined scheduler. In the pipelined design, the
+remaining `II=3` comes from combined service-state updates rather than the
+generic committed-work loop alone.
+
+For diploma wording:
+
+```text
+Specializing the SELECT stage for exactly two lanes did not materially change
+the synthesized pipelined scheduler. This narrows the remaining bottleneck to
+service-state ownership: queue counters, produced-pair buffers, phase control,
+and status updates still share one parent pipeline.
+```
+
+The next parallel experiment should therefore split writeback ownership, for
+example by making commit/writeback the only service that mutates local/global
+queue counters.

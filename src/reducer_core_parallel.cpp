@@ -341,6 +341,135 @@ static inline ap_uint<1> lane_conflicts_with_committed_work(
   return 0;
 }
 
+#if ENABLE_PARALLEL_PAIRWISE_SELECT
+static inline ap_uint<1> pair_ports_touch_same_binary_node(
+    Port first_left_port,
+    Port first_right_port,
+    Port second_left_port,
+    Port second_right_port) {
+  ap_uint<1> first_left_is_binary = is_binary_node_port(first_left_port);
+  ap_uint<1> first_right_is_binary = is_binary_node_port(first_right_port);
+  ap_uint<1> second_left_is_binary = is_binary_node_port(second_left_port);
+  ap_uint<1> second_right_is_binary = is_binary_node_port(second_right_port);
+
+  PortValue first_left_value = get_port_value(first_left_port);
+  PortValue first_right_value = get_port_value(first_right_port);
+  PortValue second_left_value = get_port_value(second_left_port);
+  PortValue second_right_value = get_port_value(second_right_port);
+
+  return (first_left_is_binary && second_left_is_binary && first_left_value == second_left_value) ||
+         (first_left_is_binary && second_right_is_binary && first_left_value == second_right_value) ||
+         (first_right_is_binary && second_left_is_binary && first_right_value == second_left_value) ||
+         (first_right_is_binary && second_right_is_binary && first_right_value == second_right_value);
+}
+
+static inline ap_uint<1> pair_ports_touch_same_node_bank(
+    Port first_left_port,
+    Port first_right_port,
+    Port second_left_port,
+    Port second_right_port) {
+  ap_uint<1> first_left_is_binary = is_binary_node_port(first_left_port);
+  ap_uint<1> first_right_is_binary = is_binary_node_port(first_right_port);
+  ap_uint<1> second_left_is_binary = is_binary_node_port(second_left_port);
+  ap_uint<1> second_right_is_binary = is_binary_node_port(second_right_port);
+
+  PortValue first_left_value = get_port_value(first_left_port);
+  PortValue first_right_value = get_port_value(first_right_port);
+  PortValue second_left_value = get_port_value(second_left_port);
+  PortValue second_right_value = get_port_value(second_right_port);
+
+  return (first_left_is_binary && second_left_is_binary &&
+          first_left_value != second_left_value &&
+          get_node_memory_bank_index(first_left_port) == get_node_memory_bank_index(second_left_port)) ||
+         (first_left_is_binary && second_right_is_binary &&
+          first_left_value != second_right_value &&
+          get_node_memory_bank_index(first_left_port) == get_node_memory_bank_index(second_right_port)) ||
+         (first_right_is_binary && second_left_is_binary &&
+          first_right_value != second_left_value &&
+          get_node_memory_bank_index(first_right_port) == get_node_memory_bank_index(second_left_port)) ||
+         (first_right_is_binary && second_right_is_binary &&
+          first_right_value != second_right_value &&
+          get_node_memory_bank_index(first_right_port) == get_node_memory_bank_index(second_right_port));
+}
+
+static inline ap_uint<1> pairwise_active_pairs_conflict(
+    RedexPair candidate_active_pair,
+    InteractionRuleKind candidate_rule_kind,
+    RedexPair committed_active_pair,
+    InteractionRuleKind committed_rule_kind,
+    ReducerStatistics* reducer_statistics) {
+  if (candidate_rule_kind == INTERACTION_RULE_UNSUPPORTED ||
+      committed_rule_kind == INTERACTION_RULE_UNSUPPORTED) {
+    return 1;
+  }
+
+  if (candidate_rule_kind == INTERACTION_RULE_VOID &&
+      committed_rule_kind == INTERACTION_RULE_VOID) {
+    return 0;
+  }
+
+#if ENABLE_RULE_LINK
+  if (candidate_rule_kind == INTERACTION_RULE_LINK &&
+      committed_rule_kind == INTERACTION_RULE_LINK &&
+      get_port_value(get_link_variable_port_for_conflict_check(
+          candidate_active_pair.left_port,
+          candidate_active_pair.right_port)) ==
+          get_port_value(get_link_variable_port_for_conflict_check(
+              committed_active_pair.left_port,
+              committed_active_pair.right_port))) {
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+    reducer_statistics->substitution_conflict_count =
+        reducer_statistics->substitution_conflict_count + 1;
+#endif
+    return 1;
+  }
+
+  if (candidate_rule_kind == INTERACTION_RULE_LINK &&
+      committed_rule_kind == INTERACTION_RULE_LINK &&
+      link_rules_touch_same_substitution_bank(candidate_active_pair, committed_active_pair)) {
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+    reducer_statistics->substitution_bank_conflict_count =
+        reducer_statistics->substitution_bank_conflict_count + 1;
+#endif
+  }
+#endif
+
+  if (pair_ports_touch_same_binary_node(
+          candidate_active_pair.left_port,
+          candidate_active_pair.right_port,
+          committed_active_pair.left_port,
+          committed_active_pair.right_port)) {
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+    reducer_statistics->node_access_conflict_count =
+        reducer_statistics->node_access_conflict_count + 1;
+#endif
+    return 1;
+  }
+
+  if (pair_ports_touch_same_node_bank(
+          candidate_active_pair.left_port,
+          candidate_active_pair.right_port,
+          committed_active_pair.left_port,
+          committed_active_pair.right_port)) {
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+    reducer_statistics->node_bank_conflict_count =
+        reducer_statistics->node_bank_conflict_count + 1;
+#endif
+  }
+
+  if (produced_rule_needs_allocation(candidate_rule_kind) ||
+      produced_rule_needs_allocation(committed_rule_kind)) {
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+    reducer_statistics->allocation_contention_count =
+        reducer_statistics->allocation_contention_count + 1;
+#endif
+    return 1;
+  }
+
+  return 0;
+}
+#endif
+
 #if ENABLE_PARALLEL_SERVICE_HELPERS
 static ap_uint<1> parallel_refill_service(
     ReducerLaneState reducer_lanes[REDUCER_LANE_COUNT],
@@ -688,6 +817,61 @@ extern "C" void reducer_core_parallel(
       }
       parallel_service_phase = PARALLEL_SERVICE_SELECT;
     } else if (parallel_service_phase == PARALLEL_SERVICE_SELECT) {
+#if ENABLE_PARALLEL_PAIRWISE_SELECT
+      ap_uint<1> lane_has_candidate[REDUCER_LANE_COUNT];
+#pragma HLS ARRAY_PARTITION variable=lane_has_candidate complete dim=1
+
+      for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
+#pragma HLS UNROLL
+        phased_lane_should_commit[lane_index] = 0;
+        phased_candidate_rule_kinds[lane_index] = INTERACTION_RULE_UNSUPPORTED;
+        initialize_produced_active_pairs(&phased_produced_active_pairs[lane_index]);
+        phased_produced_pair_index[lane_index] = 0;
+        lane_has_candidate[lane_index] =
+            active_pair_queue_peek_local(&reducer_lanes[lane_index], &phased_candidate_active_pairs[lane_index]);
+        if (lane_has_candidate[lane_index]) {
+          phased_candidate_rule_kinds[lane_index] = get_interaction_rule_kind(
+              phased_candidate_active_pairs[lane_index].left_port,
+              phased_candidate_active_pairs[lane_index].right_port);
+        }
+      }
+
+      ap_uint<2> committed_this_cycle_count = 0;
+      if (lane_has_candidate[0] && executed_steps < maximum_steps) {
+        phased_lane_should_commit[0] = 1;
+        committed_this_cycle_count = 1;
+      }
+
+      if (lane_has_candidate[1] &&
+          executed_steps + committed_this_cycle_count < maximum_steps) {
+        ap_uint<1> lane_one_conflicts =
+            phased_lane_should_commit[0] &&
+            pairwise_active_pairs_conflict(
+                phased_candidate_active_pairs[1],
+                phased_candidate_rule_kinds[1],
+                phased_candidate_active_pairs[0],
+                phased_candidate_rule_kinds[0],
+                reducer_statistics);
+        if (lane_one_conflicts) {
+          increment_lane_stall_counter(reducer_statistics, 1);
+        } else {
+          phased_lane_should_commit[1] = 1;
+          committed_this_cycle_count = committed_this_cycle_count + 1;
+        }
+      }
+
+#if ENABLE_PARALLEL_REDUCER_STATISTICS
+      if (committed_this_cycle_count > 1) {
+        reducer_statistics->dual_commit_cycle_count =
+            reducer_statistics->dual_commit_cycle_count + 1;
+      }
+#endif
+      if (committed_this_cycle_count == 0) {
+        parallel_service_phase = PARALLEL_SERVICE_REFILL;
+      } else {
+        parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+      }
+#else
       RedexPair committed_active_pairs[REDUCER_LANE_COUNT];
       InteractionRuleKind committed_rule_kinds[REDUCER_LANE_COUNT];
       ap_uint<32> committed_this_cycle_count = 0;
@@ -737,6 +921,7 @@ extern "C" void reducer_core_parallel(
       } else {
         parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
       }
+#endif
     } else if (parallel_service_phase == PARALLEL_SERVICE_EXECUTE) {
       for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
 #pragma HLS UNROLL
