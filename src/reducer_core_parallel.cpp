@@ -817,6 +817,11 @@ extern "C" void reducer_core_parallel(
   InteractionRuleKind selected_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
   ProducedActivePairs selected_command_produced_active_pairs;
   ProducedPairCount selected_command_produced_pair_index = 0;
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+  ap_uint<1> selected_command_completion_valid = 0;
+  ap_uint<1> selected_command_completion_lane_index = 0;
+  InteractionRuleKind selected_command_completion_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+#endif
 #if ENABLE_PARALLEL_STAGED_LINK
   ap_uint<1> selected_command_link_active = 0;
   ap_uint<2> selected_command_link_stage = PARALLEL_LINK_STAGE_IDLE;
@@ -895,6 +900,9 @@ extern "C" void reducer_core_parallel(
 #if ENABLE_PARALLEL_SERVICE_PHASE
       (executed_steps < maximum_steps ||
        parallel_service_phase == PARALLEL_SERVICE_COMMIT
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+       || parallel_service_phase == PARALLEL_SERVICE_COMPLETE_SELECTED
+#endif
 #if ENABLE_PARALLEL_PENDING_STATUS
        || parallel_service_phase == PARALLEL_SERVICE_STATUS
 #endif
@@ -1246,6 +1254,9 @@ extern "C" void reducer_core_parallel(
       selected_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
       selected_command_produced_pair_index = 0;
       initialize_produced_active_pairs(&selected_command_produced_active_pairs);
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+      selected_command_completion_valid = 0;
+#endif
 #if ENABLE_PARALLEL_STAGED_LINK
       selected_command_link_active = 0;
       selected_command_link_stage = PARALLEL_LINK_STAGE_IDLE;
@@ -1411,6 +1422,23 @@ extern "C" void reducer_core_parallel(
 #else
       parallel_service_phase = PARALLEL_SERVICE_REFILL;
 #endif
+    } else if (parallel_service_phase == PARALLEL_SERVICE_COMPLETE_SELECTED) {
+#if ENABLE_PARALLEL_SELECTED_COMMAND && ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+      if (selected_command_completion_valid &&
+          local_status_code == REDUCER_STATUS_SUCCESS) {
+#if ENABLE_REDUCER_STATISTICS
+        count_executed_rule(reducer_statistics, selected_command_completion_rule_kind);
+#endif
+        executed_steps = executed_steps + 1;
+        increment_lane_committed_step_counter(
+            reducer_statistics,
+            selected_command_completion_lane_index);
+        selected_command_completion_valid = 0;
+      }
+      parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#else
+      parallel_service_phase = PARALLEL_SERVICE_REFILL;
+#endif
     } else if (parallel_service_phase == PARALLEL_SERVICE_EXECUTE) {
 #if ENABLE_PARALLEL_WAITING_COMMAND
       if (active_command_valid &&
@@ -1519,6 +1547,11 @@ extern "C" void reducer_core_parallel(
                 local_status_code = REDUCER_STATUS_REDEX_QUEUE_OVERFLOW;
 #endif
               } else {
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+                selected_command_completion_valid = 1;
+                selected_command_completion_lane_index = selected_command_lane_index;
+                selected_command_completion_rule_kind = selected_command_rule_kind;
+#else
 #if ENABLE_REDUCER_STATISTICS
                 count_executed_rule(reducer_statistics, selected_command_rule_kind);
 #endif
@@ -1526,13 +1559,30 @@ extern "C" void reducer_core_parallel(
                 increment_lane_committed_step_counter(
                     reducer_statistics,
                     selected_command_lane_index);
+#endif
               }
 #if ENABLE_PARALLEL_PENDING_STATUS
               if (!pending_status_valid) {
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+                if (selected_command_completion_valid) {
+                  parallel_service_phase = PARALLEL_SERVICE_COMPLETE_SELECTED;
+                } else {
+                  parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+                }
+#else
+                parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
+              }
+#else
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+              if (selected_command_completion_valid) {
+                parallel_service_phase = PARALLEL_SERVICE_COMPLETE_SELECTED;
+              } else {
                 parallel_service_phase = PARALLEL_SERVICE_COMMIT;
               }
 #else
               parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
 #endif
             } else {
               PortValue variable_index = get_port_value(variable_port);
@@ -1634,6 +1684,11 @@ extern "C" void reducer_core_parallel(
             selected_command_link_emit_pair = 0;
 #endif
             if (local_status_code == REDUCER_STATUS_SUCCESS) {
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+              selected_command_completion_valid = 1;
+              selected_command_completion_lane_index = selected_command_lane_index;
+              selected_command_completion_rule_kind = selected_command_rule_kind;
+#else
 #if ENABLE_REDUCER_STATISTICS
               count_executed_rule(reducer_statistics, selected_command_rule_kind);
 #endif
@@ -1641,13 +1696,30 @@ extern "C" void reducer_core_parallel(
               increment_lane_committed_step_counter(
                   reducer_statistics,
                   selected_command_lane_index);
+#endif
             }
 #if ENABLE_PARALLEL_PENDING_STATUS
             if (!pending_status_valid) {
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+              if (selected_command_completion_valid) {
+                parallel_service_phase = PARALLEL_SERVICE_COMPLETE_SELECTED;
+              } else {
+                parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+              }
+#else
+              parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
+            }
+#else
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+            if (selected_command_completion_valid) {
+              parallel_service_phase = PARALLEL_SERVICE_COMPLETE_SELECTED;
+            } else {
               parallel_service_phase = PARALLEL_SERVICE_COMMIT;
             }
 #else
             parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
 #endif
           }
         } else {
@@ -1686,10 +1758,24 @@ extern "C" void reducer_core_parallel(
             &local_status_code);
 #endif
         if (lane_committed) {
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+          selected_command_completion_valid = 1;
+          selected_command_completion_lane_index = selected_command_lane_index;
+          selected_command_completion_rule_kind = selected_command_rule_kind;
+#else
           executed_steps = executed_steps + 1;
           increment_lane_committed_step_counter(reducer_statistics, selected_command_lane_index);
+#endif
         }
+#if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+        if (selected_command_completion_valid) {
+          parallel_service_phase = PARALLEL_SERVICE_COMPLETE_SELECTED;
+        } else {
+          parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+        }
+#else
         parallel_service_phase = PARALLEL_SERVICE_COMMIT;
+#endif
 #if ENABLE_PARALLEL_STAGED_LINK && ENABLE_RULE_LINK
         }
 #endif

@@ -1797,3 +1797,51 @@ complete selected command and increment executed_steps
 
 The goal is to remove `executed_steps` update from the same broad control path
 that checks the loop condition and selects service status.
+
+## Try36 Selected-Command Completion Service
+
+Try36 implements the try35 follow-up under:
+
+```text
+ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
+```
+
+It keeps the try35 single-site refill pop and adds a narrow completion service:
+
+```text
+selected command executes
+selected command records completion metadata
+completion service increments executed_steps
+commit service flushes produced pairs
+```
+
+This was meant to remove `executed_steps` from the selected-command execution
+tick. Full-profile CSIM and FPGA-small CSIM both passed, and focused synthesis
+completed:
+
+| Build | LUT | FF | DSP | BRAM | Main loop II | Slack | Fmax |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Try35 single-site refill pop | 4003 | 2114 | 0 | 0 | 1 | `-2.05` | `107.01 MHz` |
+| Try36 selected completion service | 4091 | 2117 | 0 | 0 | 1 | `-2.86` | `98.40 MHz` |
+
+This is a negative result. The report no longer identifies `executed_steps` as
+the main critical-path endpoint, but the new completion-valid routing widens the
+service-phase and status-selection control. Vitis reports a critical path from
+`selected_command_produced_active_pairs.produced_pairs.left_port` through
+non-link rule checks and the `local_status_code` phi/store, plus an unmet path
+to the `parallel_service_phase` store at `select_ln1715`.
+
+For diploma wording:
+
+```text
+Try36 shows that deferring success completion is not automatically beneficial
+in the parallel scheduler. The selected-command controller is already dominated
+by produced-pair state, rule-status classification, and service-phase routing.
+Adding a completion-valid protocol removes one register update from the path
+but increases the control fan-in feeding the same scheduler state.
+```
+
+The next experiment should return to try35 and target the produced-pair/status
+path directly, for example by narrowing selected-command produced-pair state or
+splitting non-link append/status work, rather than adding a generic completion
+phase.

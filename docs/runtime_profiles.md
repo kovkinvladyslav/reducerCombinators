@@ -327,3 +327,19 @@ Focused CSYNTH completed at `4003 LUT`, `2114 FF`, `0 DSP`, `0 BRAM`,
 scheduler `II=1`, and `-2.05` slack. It is still not timing-clean, but it is
 the best focused parallel scheduler evidence so far and shows that HLS-visible
 single-owner queue services matter.
+
+Try36 adds a selected-command completion-service probe:
+
+```text
+hls_config_synth_parallel_fpga_small_structural_phased_link_regqueue_selected_command_staged_link_split_classify_split_writeback_split_refill_singlepop_completion_nostats.cfg
+```
+
+This enables `ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION` on top of the try35
+profile. Successful selected-command execution records completion metadata, then
+a separate service increments `executed_steps` and lane commit counters.
+Focused CSYNTH completed at `4091 LUT`, `2117 FF`, `0 DSP`, `0 BRAM`,
+scheduler `II=1`, and `-2.86` slack. This is worse than try35. The report shows
+that `executed_steps` is no longer the visible limiter, but the critical path
+moves into selected-command produced-pair/status routing and
+`parallel_service_phase` selection. Therefore this completion-service gate is
+kept as documented evidence, not as the next preferred focused profile.
