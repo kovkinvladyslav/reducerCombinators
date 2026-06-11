@@ -53,11 +53,15 @@ def parse_hvm_output(text: str) -> dict[str, str]:
     itrs_match = re.search(r"-\s*ITRS:\s*([0-9]+)", text)
     time_match = re.search(r"-\s*TIME:\s*([0-9.]+)s", text)
     mips_match = re.search(r"-\s*MIPS:\s*([0-9.]+)", text)
+    gpu_time_match = re.search(r"-\s*GPU_TIME:\s*([0-9.]+)s", text)
+    gpu_mips_match = re.search(r"-\s*GPU_MIPS:\s*([0-9.]+)", text)
     return {
         "result": result_match.group(1).strip() if result_match else "",
         "itrs": itrs_match.group(1) if itrs_match else "",
         "time_seconds": time_match.group(1) if time_match else "",
         "mips": mips_match.group(1) if mips_match else "",
+        "gpu_time_seconds": gpu_time_match.group(1) if gpu_time_match else "",
+        "gpu_mips": gpu_mips_match.group(1) if gpu_mips_match else "",
     }
 
 
@@ -143,6 +147,8 @@ def main() -> int:
 
             time_values = [float(r["time_seconds"]) for r in parsed_runs if r["time_seconds"]]
             mips_values = [float(r["mips"]) for r in parsed_runs if r["mips"]]
+            gpu_time_values = [float(r["gpu_time_seconds"]) for r in parsed_runs if r["gpu_time_seconds"]]
+            gpu_mips_values = [float(r["gpu_mips"]) for r in parsed_runs if r["gpu_mips"]]
             itrs_values = sorted({r["itrs"] for r in parsed_runs if r["itrs"]})
             result_values = sorted({r["result"] for r in parsed_runs if r["result"]})
 
@@ -163,6 +169,14 @@ def main() -> int:
                 "avg_mips": statistics.mean(mips_values) if mips_values else "",
                 "min_mips": min(mips_values) if mips_values else "",
                 "max_mips": max(mips_values) if mips_values else "",
+                "avg_gpu_time_seconds": statistics.mean(gpu_time_values) if gpu_time_values else "",
+                "avg_gpu_time_us": statistics.mean(gpu_time_values) * 1_000_000 if gpu_time_values else "",
+                "min_gpu_time_us": min(gpu_time_values) * 1_000_000 if gpu_time_values else "",
+                "max_gpu_time_us": max(gpu_time_values) * 1_000_000 if gpu_time_values else "",
+                "stdev_gpu_time_us": statistics.stdev(gpu_time_values) * 1_000_000 if len(gpu_time_values) > 1 else "",
+                "avg_gpu_mips": statistics.mean(gpu_mips_values) if gpu_mips_values else "",
+                "min_gpu_mips": min(gpu_mips_values) if gpu_mips_values else "",
+                "max_gpu_mips": max(gpu_mips_values) if gpu_mips_values else "",
                 "avg_wall_time_us": statistics.mean(wall_times) * 1_000_000 if wall_times else "",
                 "failures": len(failures),
                 "first_failure": failures[0] if failures else "",
@@ -175,7 +189,9 @@ def main() -> int:
         "benchmark", "mode", "n", "runs_requested", "runs_ok", "result_values",
         "expected_result", "itrs_values", "avg_time_seconds", "avg_time_us",
         "min_time_us", "max_time_us", "stdev_time_us", "avg_mips", "min_mips",
-        "max_mips", "avg_wall_time_us", "failures", "first_failure", "program_file",
+        "max_mips", "avg_gpu_time_seconds", "avg_gpu_time_us", "min_gpu_time_us",
+        "max_gpu_time_us", "stdev_gpu_time_us", "avg_gpu_mips", "min_gpu_mips",
+        "max_gpu_mips", "avg_wall_time_us", "failures", "first_failure", "program_file",
     ]
     with args.out.open("w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)

@@ -14,7 +14,7 @@ index dd72c94..05546e3 100644
    match cc::Build::new()
        .file("src/run.c")
 diff --git a/src/hvm.cu b/src/hvm.cu
-index ffa3401..3408ce6 100644
+index ffa3401..13d2ef0 100644
 --- a/src/hvm.cu
 +++ b/src/hvm.cu
 @@ -11,6 +11,14 @@
@@ -109,27 +109,74 @@ index ffa3401..3408ce6 100644
    return itrs;
  }
  
-@@ -1805,6 +1815,8 @@ u64 gnet_get_leak(GNet* gnet) {
- 
- void gnet_boot_redex(GNet* gnet, Pair redex) {
-   boot_redex<<<BPG, TPB>>>(gnet, redex);
-+  CUDA_CHECK(cudaGetLastError());
-+  CUDA_CHECK(cudaDeviceSynchronize());
+@@ -1803,15 +1813,31 @@ u64 gnet_get_leak(GNet* gnet) {
+   return leak;
  }
  
- void gnet_normalize(GNet* gnet) {
-@@ -1820,7 +1832,10 @@ void gnet_normalize(GNet* gnet) {
+-void gnet_boot_redex(GNet* gnet, Pair redex) {
++double gnet_boot_redex(GNet* gnet, Pair redex) {
++  cudaEvent_t start;
++  cudaEvent_t stop;
++  CUDA_CHECK(cudaEventCreate(&start));
++  CUDA_CHECK(cudaEventCreate(&stop));
++
++  CUDA_CHECK(cudaEventRecord(start));
+   boot_redex<<<BPG, TPB>>>(gnet, redex);
++  CUDA_CHECK(cudaGetLastError());
++  CUDA_CHECK(cudaEventRecord(stop));
++  CUDA_CHECK(cudaDeviceSynchronize());
++
++  float elapsed_ms = 0.0f;
++  CUDA_CHECK(cudaEventElapsedTime(&elapsed_ms, start, stop));
++  CUDA_CHECK(cudaEventDestroy(start));
++  CUDA_CHECK(cudaEventDestroy(stop));
++  return (double)elapsed_ms / 1000.0;
+ }
+ 
+-void gnet_normalize(GNet* gnet) {
++double gnet_normalize(GNet* gnet) {
+   // Invokes the Evaluator Kernel repeatedly
+   u32 turn;
+   u64 itrs = 0;
+   u32 rlen = 0;
++  double kernel_seconds = 0.0;
+   // NORM
+   for (turn = 0; turn < 0xFFFFFFFF; ++turn) {
+     //printf("\e[1;1H\e[2J");
+@@ -1819,8 +1845,24 @@ void gnet_normalize(GNet* gnet) {
+     //printf("TURN: %04x | RLEN: %04x | ITRS: %012llu\n", turn, rlen, itrs);
      //cudaDeviceSynchronize();
  
++    cudaEvent_t start;
++    cudaEvent_t stop;
++    CUDA_CHECK(cudaEventCreate(&start));
++    CUDA_CHECK(cudaEventCreate(&stop));
++
++    CUDA_CHECK(cudaEventRecord(start));
      evaluator<<<BPG, TPB, sizeof(LNet)>>>(gnet);
 +    CUDA_CHECK(cudaGetLastError());
      inbetween<<<1, 1>>>(gnet);
 +    CUDA_CHECK(cudaGetLastError());
++    CUDA_CHECK(cudaEventRecord(stop));
 +    CUDA_CHECK(cudaDeviceSynchronize());
++
++    float elapsed_ms = 0.0f;
++    CUDA_CHECK(cudaEventElapsedTime(&elapsed_ms, start, stop));
++    CUDA_CHECK(cudaEventDestroy(start));
++    CUDA_CHECK(cudaEventDestroy(stop));
++    kernel_seconds += (double)elapsed_ms / 1000.0;
      //cudaDeviceSynchronize();
  
      //count_memory<<<BPG, TPB>>>(gnet);
-@@ -2330,7 +2345,7 @@ extern "C" void hvm_cu(u32* book_buffer) {
+@@ -1836,6 +1878,7 @@ void gnet_normalize(GNet* gnet) {
+       break;
+     }
+   }
++  return kernel_seconds;
+ }
+ 
+ // Reads a device node to host
+@@ -2330,21 +2373,22 @@ extern "C" void hvm_cu(u32* book_buffer) {
    }
  
    // Configures Shared Memory Size
@@ -138,14 +185,37 @@ index ffa3401..3408ce6 100644
  
    // Creates a new GNet
    GNet* gnet = gnet_create();
-@@ -2392,8 +2407,8 @@ extern "C" void hvm_cu(u32* book_buffer) {
+ 
+   // Start the timer
+   clock_t start = clock();
++  double gpu_duration = 0.0;
+ 
+   // Boots root redex, to expand @main
+-  gnet_boot_redex(gnet, new_pair(new_port(REF, 0), ROOT));
++  gpu_duration += gnet_boot_redex(gnet, new_pair(new_port(REF, 0), ROOT));
+ 
+   #ifdef IO
+   do_run_io(gnet, book, ROOT);
+   #else
+-  gnet_normalize(gnet);
++  gpu_duration += gnet_normalize(gnet);
+   #endif
+ 
+   cudaDeviceSynchronize();
+@@ -2390,10 +2434,13 @@ extern "C" void hvm_cu(u32* book_buffer) {
+   //cudaMemcpy(&itrs, &gnet->itrs, sizeof(u64), cudaMemcpyDeviceToHost);
+ 
    // Prints interactions, time and MIPS
-   printf("- ITRS: %llu\n", gnet_get_itrs(gnet));
+-  printf("- ITRS: %llu\n", gnet_get_itrs(gnet));
++  u64 itrs = gnet_get_itrs(gnet);
++  printf("- ITRS: %llu\n", itrs);
    printf("- LEAK: %llu\n", gnet_get_leak(gnet));
 -  printf("- TIME: %.2fs\n", duration);
 -  printf("- MIPS: %.2f\n", (double)gnet_get_itrs(gnet) / duration / 1000000.0);
 +  printf("- TIME: %.9fs\n", duration);
-+  printf("- MIPS: %.6f\n", (double)gnet_get_itrs(gnet) / duration / 1000000.0);
++  printf("- MIPS: %.6f\n", (double)itrs / duration / 1000000.0);
++  printf("- GPU_TIME: %.9fs\n", gpu_duration);
++  printf("- GPU_MIPS: %.6f\n", gpu_duration > 0.0 ? (double)itrs / gpu_duration / 1000000.0 : 0.0);
  }
  
  #ifdef WITH_MAIN

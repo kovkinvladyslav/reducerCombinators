@@ -34,11 +34,10 @@ if [[ ! -d "${hvm_dir}/.git" ]]; then
   git clone https://github.com/HigherOrderCO/HVM2.git "${hvm_dir}"
 fi
 
-if ! git -C "${hvm_dir}" apply --check "${repo_root}/docs/hvm2_precise_timing.patch" >/dev/null 2>&1; then
-  printf 'HVM2 timing patch is already applied or does not match this checkout.\n' >&2
-else
-  git -C "${hvm_dir}" apply "${repo_root}/docs/hvm2_precise_timing.patch"
-fi
+git -C "${hvm_dir}" fetch origin
+git -C "${hvm_dir}" reset --hard origin/main
+git -C "${hvm_dir}" clean -fdx
+git -C "${hvm_dir}" apply "${repo_root}/docs/hvm2_precise_timing.patch"
 
 echo "Building HVM2 with CUDA support..."
 CC=gcc-12 \
