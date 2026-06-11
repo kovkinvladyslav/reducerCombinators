@@ -1,0 +1,381 @@
+"﻿""benchmark""",n,lanes,result,reduction_steps,operate_count,expected_result_u24,expected_reduction_steps,expected_operate_count,active_pair_count_input,hls_mode,work_name,synth_returncode,target_clock_period_ns,estimated_clock_period_ns,BRAM_18K,DSP,FF,LUT,safe_clock_period_ns,cosim_returncode,rtl_status,latency_min_cycles,latency_avg_cycles,latency_max_cycles,total_execution_cycles,rtl_cycles,rtl_latency_avg_cycles,estimated_time_us,executions_per_second,pass,stdout_tail,failure_stage,failure_message,benchmark,hls_attempt
+sum_tree,16,2,120,16,8,120,16,8,8,cosim,parallel_sum_16_lanes_2_cosim_75e037a44351,reused,10.00,7.079,,,,,10.000,reused,Pass,198,198,198,198,198,198,1.98,505050.50505050505,yes,,,,,
+sum_tree,16,4,120,16,8,120,16,8,8,cosim,parallel_sum_16_lanes_4_cosim_66c8488fc3a4,reused,10.00,7.079,,,,,10.000,reused,Pass,196,196,196,196,196,196,1.96,510204.0816326531,yes,,,,,
+sum_tree,16,8,120,16,8,120,16,8,8,cosim,parallel_sum_16_lanes_8_cosim_601c57bb4acf,reused,10.00,7.074,,,,,10.000,reused,Pass,210,210,210,210,210,210,2.1,476190.47619047615,yes,,,,,
+sum_tree,16,16,120,16,8,120,16,8,8,cosim,parallel_sum_16_lanes_16_cosim_15bdda461b3b,reused,10.00,7.074,,,,,10.000,reused,Pass,210,210,210,210,210,210,2.1,476190.47619047615,yes,,,,,
+sum_tree,32,2,496,32,16,496,32,16,16,cosim,parallel_sum_32_lanes_2_cosim_3153e4d8bef1,0,10.00,7.079,,,,,10.000,0,Pass,258,258,258,258,258,258,2.58,387596.89922480617,yes,"
+operate_count=16
+
+parallel_cycle_count=8
+
+multi_commit_cycle_count=8
+
+maximum_global_queue_count=16
+
+max_node_count=16
+
+max_variable_count=16
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 90.614 seconds; peak allocated memory: 206.715 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 35s",,,,
+sum_tree,32,4,496,32,16,496,32,16,16,cosim,parallel_sum_32_lanes_4_cosim_14421f0ba68c,0,10.00,7.079,,,,,10.000,0,Pass,254,254,254,254,254,254,2.54,393700.7874015748,yes,"
+operate_count=16
+
+parallel_cycle_count=4
+
+multi_commit_cycle_count=4
+
+maximum_global_queue_count=16
+
+max_node_count=16
+
+max_variable_count=16
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 94.735 seconds; peak allocated memory: 205.645 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 39s",,,,
+sum_tree,32,8,496,32,16,496,32,16,16,cosim,parallel_sum_32_lanes_8_cosim_f6707c83f439,0,10.00,7.079,,,,,10.000,0,Pass,252,252,252,252,252,252,2.52,396825.3968253968,yes,"
+operate_count=16
+
+parallel_cycle_count=2
+
+multi_commit_cycle_count=2
+
+maximum_global_queue_count=16
+
+max_node_count=16
+
+max_variable_count=16
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 90.591 seconds; peak allocated memory: 206.418 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 35s",,,,
+sum_tree,32,16,496,32,16,496,32,16,16,cosim,parallel_sum_32_lanes_16_cosim_797ea3bda790,0,10.00,7.699,4,1,1830,5403,10.000,0,Pass,266,266,266,266,266,266,2.66,375939.84962406015,yes,"
+operate_count=16
+
+parallel_cycle_count=1
+
+multi_commit_cycle_count=1
+
+maximum_global_queue_count=16
+
+max_node_count=16
+
+max_variable_count=16
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 96.623 seconds; peak allocated memory: 206.262 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 41s",,,,
+sum_tree,32,32,496,32,16,496,32,16,16,cosim,parallel_sum_32_lanes_32_cosim_7f1f4f926494,0,10.00,7.699,4,1,1830,5403,10.000,0,Pass,266,266,266,266,266,266,2.66,375939.84962406015,yes,"
+operate_count=16
+
+parallel_cycle_count=1
+
+multi_commit_cycle_count=1
+
+maximum_global_queue_count=16
+
+max_node_count=16
+
+max_variable_count=16
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 98.641 seconds; peak allocated memory: 206.969 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 43s",,,,
+sum_tree,64,2,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_2_cosim_3ce2d8ca924b,0,10.00,7.079,,,,,10.000,0,Pass,378,378,378,378,378,378,3.78,264550.2645502646,yes,"
+operate_count=32
+
+parallel_cycle_count=16
+
+multi_commit_cycle_count=16
+
+maximum_global_queue_count=32
+
+max_node_count=32
+
+max_variable_count=32
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 90.629 seconds; peak allocated memory: 207.691 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 35s",,,,
+sum_tree,64,4,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_4_cosim_04744f9d9fbe,0,10.00,7.079,,,,,10.000,0,Pass,370,370,370,370,370,370,3.7,270270.27027027024,yes,"
+operate_count=32
+
+parallel_cycle_count=8
+
+multi_commit_cycle_count=8
+
+maximum_global_queue_count=32
+
+max_node_count=32
+
+max_variable_count=32
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 92.455 seconds; peak allocated memory: 207.570 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 37s",,,,
+sum_tree,64,8,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_8_cosim_30c3ea3426a9,0,10.00,7.079,,,,,10.000,0,Pass,366,366,366,366,366,366,3.66,273224.04371584696,yes,"
+operate_count=32
+
+parallel_cycle_count=4
+
+multi_commit_cycle_count=4
+
+maximum_global_queue_count=32
+
+max_node_count=32
+
+max_variable_count=32
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 90.56 seconds; peak allocated memory: 208.004 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 35s",,,,
+sum_tree,64,16,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_16_cosim_53a237de8e08,0,10.00,7.699,5,1,2522,5938,10.000,0,Pass,364,364,364,364,364,364,3.64,274725.2747252747,yes,"
+operate_count=32
+
+parallel_cycle_count=2
+
+multi_commit_cycle_count=2
+
+maximum_global_queue_count=32
+
+max_node_count=32
+
+max_variable_count=32
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 92.656 seconds; peak allocated memory: 206.688 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 37s",,,,
+sum_tree,64,32,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_32_cosim_3692a5f33661,0,10.00,7.737,5,1,3115,8477,10.000,0,Pass,394,394,394,394,394,394,3.94,253807.10659898477,yes,"
+operate_count=32
+
+parallel_cycle_count=1
+
+multi_commit_cycle_count=1
+
+maximum_global_queue_count=32
+
+max_node_count=32
+
+max_variable_count=32
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 96.521 seconds; peak allocated memory: 206.840 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 41s",,,,
+sum_tree,64,64,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_64_cosim_3b1f0ef838f7,0,10.00,7.737,5,1,3115,8477,10.000,0,Pass,394,394,394,394,394,394,3.94,253807.10659898477,yes,"
+operate_count=32
+
+parallel_cycle_count=1
+
+multi_commit_cycle_count=1
+
+maximum_global_queue_count=32
+
+max_node_count=32
+
+max_variable_count=32
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 92.815 seconds; peak allocated memory: 207.070 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 37s",,,,
+sum_tree,128,2,8128,128,64,8128,128,64,64,cosim,parallel_sum_128_lanes_2_cosim_3d534c1c0394,0,10.00,7.079,,,,,10.000,0,Pass,746,746,746,746,746,746,7.46,134048.25737265416,yes,"
+operate_count=64
+
+parallel_cycle_count=32
+
+multi_commit_cycle_count=32
+
+maximum_global_queue_count=64
+
+max_node_count=64
+
+max_variable_count=64
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 94.647 seconds; peak allocated memory: 207.289 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 39s",,,,
+,16,2,120,16,8,120,16,8,8,cosim,parallel_sum_16_lanes_2_cosim_75e037a44351,reused,10.00,7.079,,,,,10.000,reused,Pass,198,198,198,198,198,198,1.98,505050.50505050505,yes,,,,sum_tree,
+,16,4,120,16,8,120,16,8,8,cosim,parallel_sum_16_lanes_4_cosim_66c8488fc3a4,reused,10.00,7.079,,,,,10.000,reused,Pass,196,196,196,196,196,196,1.96,510204.0816326531,yes,,,,sum_tree,
+,16,8,120,16,8,120,16,8,8,cosim,parallel_sum_16_lanes_8_cosim_601c57bb4acf,reused,10.00,7.074,,,,,10.000,reused,Pass,210,210,210,210,210,210,2.1,476190.47619047615,yes,,,,sum_tree,
+,16,16,120,16,8,120,16,8,8,cosim,parallel_sum_16_lanes_16_cosim_15bdda461b3b,reused,10.00,7.074,,,,,10.000,reused,Pass,210,210,210,210,210,210,2.1,476190.47619047615,yes,,,,sum_tree,
+,32,2,496,32,16,496,32,16,16,cosim,parallel_sum_32_lanes_2_cosim_3153e4d8bef1,reused,10.00,7.079,,,,,10.000,reused,Pass,258,258,258,258,258,258,2.58,387596.89922480617,yes,,,,sum_tree,
+,32,4,496,32,16,496,32,16,16,cosim,parallel_sum_32_lanes_4_cosim_14421f0ba68c,reused,10.00,7.079,,,,,10.000,reused,Pass,254,254,254,254,254,254,2.54,393700.7874015748,yes,,,,sum_tree,
+,32,8,496,32,16,496,32,16,16,cosim,parallel_sum_32_lanes_8_cosim_f6707c83f439,reused,10.00,7.079,,,,,10.000,reused,Pass,252,252,252,252,252,252,2.52,396825.3968253968,yes,,,,sum_tree,
+,32,16,496,32,16,496,32,16,16,cosim,parallel_sum_32_lanes_16_cosim_797ea3bda790,reused,10.00,7.699,4,1,1830,5403,10.000,reused,Pass,266,266,266,266,266,266,2.66,375939.84962406015,yes,,,,sum_tree,
+,32,32,496,32,16,496,32,16,16,cosim,parallel_sum_32_lanes_32_cosim_7f1f4f926494,reused,10.00,7.699,4,1,1830,5403,10.000,reused,Pass,266,266,266,266,266,266,2.66,375939.84962406015,yes,,,,sum_tree,
+,64,2,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_2_cosim_3ce2d8ca924b,reused,10.00,7.079,,,,,10.000,reused,Pass,378,378,378,378,378,378,3.78,264550.2645502646,yes,,,,sum_tree,
+,64,4,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_4_cosim_04744f9d9fbe,reused,10.00,7.079,,,,,10.000,reused,Pass,370,370,370,370,370,370,3.7,270270.27027027024,yes,,,,sum_tree,
+,64,8,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_8_cosim_30c3ea3426a9,reused,10.00,7.079,,,,,10.000,reused,Pass,366,366,366,366,366,366,3.66,273224.04371584696,yes,,,,sum_tree,
+,64,16,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_16_cosim_53a237de8e08,reused,10.00,7.699,5,1,2522,5938,10.000,reused,Pass,364,364,364,364,364,364,3.64,274725.2747252747,yes,,,,sum_tree,
+,64,32,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_32_cosim_3692a5f33661,reused,10.00,7.737,5,1,3115,8477,10.000,reused,Pass,394,394,394,394,394,394,3.94,253807.10659898477,yes,,,,sum_tree,
+,64,64,2016,64,32,2016,64,32,32,cosim,parallel_sum_64_lanes_64_cosim_3b1f0ef838f7,reused,10.00,7.737,5,1,3115,8477,10.000,reused,Pass,394,394,394,394,394,394,3.94,253807.10659898477,yes,,,,sum_tree,
+,128,2,8128,128,64,8128,128,64,64,cosim,parallel_sum_128_lanes_2_cosim_3d534c1c0394,reused,10.00,7.079,,,,,10.000,reused,Pass,746,746,746,746,746,746,7.46,134048.25737265416,yes,,,,sum_tree,
+,128,4,8128,128,64,8128,128,64,64,cosim,parallel_sum_128_lanes_4_cosim_d6b3dbb18bbe,reused,10.00,7.079,,,,,10.000,0,Pass,730,730,730,730,730,730,7.3,136986.301369863,yes,"
+operate_count=64
+
+parallel_cycle_count=16
+
+multi_commit_cycle_count=16
+
+maximum_global_queue_count=64
+
+max_node_count=64
+
+max_variable_count=64
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 84.828 seconds; peak allocated memory: 206.594 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 29s",,,sum_tree,1
+,128,8,8128,128,64,8128,128,64,64,cosim,parallel_sum_128_lanes_8_cosim_2cafb5e997ac,0,10.00,7.079,,,,,10.000,0,Pass,722,722,722,722,722,722,7.22,138504.15512465374,yes,"
+operate_count=64
+
+parallel_cycle_count=8
+
+multi_commit_cycle_count=8
+
+maximum_global_queue_count=64
+
+max_node_count=64
+
+max_variable_count=64
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 84.522 seconds; peak allocated memory: 206.176 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 29s",,,sum_tree,1
+,128,16,8128,128,64,8128,128,64,64,cosim,parallel_sum_128_lanes_16_cosim_f5c071531a00,0,10.00,7.699,5,1,2536,5948,10.000,0,Pass,718,718,718,718,718,718,7.18,139275.7660167131,yes,"
+operate_count=64
+
+parallel_cycle_count=4
+
+multi_commit_cycle_count=4
+
+maximum_global_queue_count=64
+
+max_node_count=64
+
+max_variable_count=64
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 84.619 seconds; peak allocated memory: 206.574 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 29s",,,sum_tree,1
+,128,32,8128,128,64,8128,128,64,64,cosim,parallel_sum_128_lanes_32_cosim_c41e1c578914,0,10.00,7.737,5,1,4432,9341,10.000,0,Pass,716,716,716,716,716,716,7.16,139664.80446927375,yes,"
+operate_count=64
+
+parallel_cycle_count=2
+
+multi_commit_cycle_count=2
+
+maximum_global_queue_count=64
+
+max_node_count=64
+
+max_variable_count=64
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 88.574 seconds; peak allocated memory: 207.191 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 33s",,,sum_tree,1
+,128,64,8128,128,64,8128,128,64,64,cosim,parallel_sum_128_lanes_64_cosim_82c0229fba52,0,10.00,7.815,5,1,5723,14590,10.000,0,Pass,778,778,778,778,778,778,7.78,128534.70437017994,yes,"
+operate_count=64
+
+parallel_cycle_count=1
+
+multi_commit_cycle_count=1
+
+maximum_global_queue_count=64
+
+max_node_count=64
+
+max_variable_count=64
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 86.867 seconds; peak allocated memory: 207.215 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 31s",,,sum_tree,1
+,128,128,8128,128,64,8128,128,64,64,cosim,parallel_sum_128_lanes_128_cosim_9920e3bc3cf6,0,10.00,7.815,5,1,5723,14590,10.000,0,Pass,778,778,778,778,778,778,7.78,128534.70437017994,yes,"
+operate_count=64
+
+parallel_cycle_count=1
+
+multi_commit_cycle_count=1
+
+maximum_global_queue_count=64
+
+max_node_count=64
+
+max_variable_count=64
+
+INFO: [COSIM 212-1000] *** C/RTL co-simulation finished: PASS ***
+
+INFO: [COSIM 212-211] II is measurable only when transaction number is greater than 1 in RTL simulation. Otherwise, they will be marked as all NA. If user wants to calculate them, please make sure there are at least 2 transactions in RTL simulation.
+
+INFO: [HLS 200-112] Total CPU user time: 4 seconds. Total CPU system time: 2 seconds. Total elapsed time: 86.802 seconds; peak allocated memory: 206.570 MB.
+
+INFO: [vitis-run 60-791] Total elapsed time: 0h 1m 31s",,,sum_tree,1

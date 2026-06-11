@@ -1,0 +1,5 @@
+benchmark,mode,n,runs_requested,runs_ok,result_values,itrs_values,avg_time_seconds,avg_time_us,min_time_us,max_time_us,stdev_time_us,avg_mips,min_mips,max_mips,stdev_mips,failures,first_failure
+sum_tree,hvm_run_rust_single_thread,16,100,100,120,38,5.791e-06,5.791,4.0,9.9,1.0915742500784558,6.77672684,3.838384,9.5,1.192738236644636,0,
+sum_tree,hvm_run_rust_single_thread,32,100,100,496,78,1.045e-05,10.45,5.2,243.2,23.813939980056585,10.36861095,0.320724,15.0,2.543872390094479,0,
+sum_tree,hvm_run_rust_single_thread,64,100,100,2016,158,1.0395e-05,10.395,7.9,21.0,2.1849057488397823,15.80453395,7.52381,20.0,3.0041464229369543,0,
+sum_tree,hvm_run_rust_single_thread,128,100,100,8128,318,1.8469e-05,18.468999999999998,14.7,71.4,6.660977800032459,18.22980573,4.453782,21.632653,3.36057116542597,0,

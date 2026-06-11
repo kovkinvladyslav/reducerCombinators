@@ -1065,7 +1065,7 @@ extern "C" void reducer_core_parallel(
 #endif
 #if ENABLE_PARALLEL_SPLIT_REFILL
 #if ENABLE_PARALLEL_SINGLE_REFILL_POP
-  ap_uint<1> refill_target_lane = 0;
+  ReducerLaneIndex refill_target_lane = 0;
 #endif
 #endif
 #if ENABLE_PARALLEL_PENDING_STATUS
@@ -1083,9 +1083,13 @@ extern "C" void reducer_core_parallel(
   ProducedPairCount phased_produced_pair_index[REDUCER_LANE_COUNT];
 #if ENABLE_PARALLEL_SELECTED_COMMAND
   ap_uint<1> selected_command_valid = 0;
-  ap_uint<1> selected_command_lane_index = 0;
+  ReducerLaneIndex selected_command_lane_index = 0;
   RedexPair selected_command_active_pair;
   InteractionRuleKind selected_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
+#if ENABLE_PARALLEL_SPLIT_SELECTED_CAPTURE
+  ap_uint<1> selected_capture_pending = 0;
+  ReducerLaneIndex selected_capture_lane_index = 0;
+#endif
 #if ENABLE_PARALLEL_NARROW_SELECTED_CLASS || ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
   ap_uint<3> selected_command_class = SELECTED_CLASS_UNSUPPORTED;
 #endif
@@ -1115,7 +1119,7 @@ extern "C" void reducer_core_parallel(
 #endif
 #if ENABLE_PARALLEL_SELECTED_COMMAND_COMPLETION
   ap_uint<1> selected_command_completion_valid = 0;
-  ap_uint<1> selected_command_completion_lane_index = 0;
+  ReducerLaneIndex selected_command_completion_lane_index = 0;
   InteractionRuleKind selected_command_completion_rule_kind = INTERACTION_RULE_UNSUPPORTED;
 #endif
 #if ENABLE_PARALLEL_STAGED_LINK
@@ -1138,14 +1142,14 @@ extern "C" void reducer_core_parallel(
 #endif
 #if ENABLE_PARALLEL_TWO_COMMAND_BUFFER
   ap_uint<1> command0_valid = 0;
-  ap_uint<1> command0_lane_index = 0;
+  ReducerLaneIndex command0_lane_index = 0;
   RedexPair command0_active_pair;
   InteractionRuleKind command0_rule_kind = INTERACTION_RULE_UNSUPPORTED;
   ProducedActivePairs command0_produced_active_pairs;
   ProducedPairCount command0_produced_pair_index = 0;
 
   ap_uint<1> command1_valid = 0;
-  ap_uint<1> command1_lane_index = 0;
+  ReducerLaneIndex command1_lane_index = 0;
   RedexPair command1_active_pair;
   InteractionRuleKind command1_rule_kind = INTERACTION_RULE_UNSUPPORTED;
   ProducedActivePairs command1_produced_active_pairs;
@@ -1154,14 +1158,14 @@ extern "C" void reducer_core_parallel(
 #if ENABLE_PARALLEL_WAITING_COMMAND
   ap_uint<1> active_command_valid = 0;
   ap_uint<1> active_command_executed = 0;
-  ap_uint<1> active_command_lane_index = 0;
+  ReducerLaneIndex active_command_lane_index = 0;
   RedexPair active_command_active_pair;
   InteractionRuleKind active_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
   ProducedActivePairs active_command_produced_active_pairs;
   ProducedPairCount active_command_produced_pair_index = 0;
 
   ap_uint<1> waiting_command_valid = 0;
-  ap_uint<1> waiting_command_lane_index = 0;
+  ReducerLaneIndex waiting_command_lane_index = 0;
   RedexPair waiting_command_active_pair;
   InteractionRuleKind waiting_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
 #endif
@@ -1209,6 +1213,9 @@ extern "C" void reducer_core_parallel(
 #if ENABLE_PARALLEL_SELECTED_ERASE_SERVICE
        || parallel_service_phase == PARALLEL_SERVICE_SELECTED_ERASE_READ
        || parallel_service_phase == PARALLEL_SERVICE_SELECTED_ERASE_EMIT
+#endif
+#if ENABLE_PARALLEL_SPLIT_SELECTED_CAPTURE
+       || parallel_service_phase == PARALLEL_SERVICE_CAPTURE_SELECTED
 #endif
 #if ENABLE_PARALLEL_PENDING_STATUS
        || parallel_service_phase == PARALLEL_SERVICE_STATUS
@@ -1564,6 +1571,10 @@ extern "C" void reducer_core_parallel(
 #elif ENABLE_PARALLEL_SELECTED_COMMAND
       selected_command_valid = 0;
       selected_command_lane_index = 0;
+#if ENABLE_PARALLEL_SPLIT_SELECTED_CAPTURE
+      selected_capture_pending = 0;
+      selected_capture_lane_index = 0;
+#endif
       selected_command_rule_kind = INTERACTION_RULE_UNSUPPORTED;
 #if ENABLE_PARALLEL_NARROW_SELECTED_CLASS || ENABLE_PARALLEL_TRUE_CLASS_ONLY_SELECTED
       selected_command_class = SELECTED_CLASS_UNSUPPORTED;
@@ -1599,6 +1610,14 @@ extern "C" void reducer_core_parallel(
         RedexPair candidate_active_pair;
         ap_uint<1> lane_has_candidate =
             active_pair_queue_peek_local(&reducer_lanes[lane_index], &candidate_active_pair);
+#if ENABLE_PARALLEL_SPLIT_SELECTED_CAPTURE
+        if (!selected_capture_pending && lane_has_candidate && executed_steps < maximum_steps) {
+          selected_capture_pending = 1;
+          selected_capture_lane_index = lane_index;
+        } else if (lane_has_candidate && executed_steps < maximum_steps) {
+          increment_lane_stall_counter(reducer_statistics, lane_index);
+        }
+#else
         if (!selected_command_valid && lane_has_candidate && executed_steps < maximum_steps) {
           selected_command_valid = 1;
           selected_command_lane_index = lane_index;
@@ -1615,8 +1634,16 @@ extern "C" void reducer_core_parallel(
         } else if (lane_has_candidate && executed_steps < maximum_steps) {
           increment_lane_stall_counter(reducer_statistics, lane_index);
         }
+#endif
       }
 
+#if ENABLE_PARALLEL_SPLIT_SELECTED_CAPTURE
+      if (selected_capture_pending) {
+        parallel_service_phase = PARALLEL_SERVICE_CAPTURE_SELECTED;
+      } else {
+        parallel_service_phase = PARALLEL_SERVICE_REFILL;
+      }
+#else
       if (selected_command_valid) {
 #if ENABLE_PARALLEL_SELECTED_COMPACT_CLASSIFY
         parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
@@ -1628,6 +1655,7 @@ extern "C" void reducer_core_parallel(
       } else {
         parallel_service_phase = PARALLEL_SERVICE_REFILL;
       }
+#endif
 #elif ENABLE_PARALLEL_PAIRWISE_SELECT
       ap_uint<1> lane_has_candidate[REDUCER_LANE_COUNT];
 #pragma HLS ARRAY_PARTITION variable=lane_has_candidate complete dim=1
@@ -2031,6 +2059,40 @@ extern "C" void reducer_core_parallel(
 #endif
       } else {
         selected_erase_service_active = 0;
+        parallel_service_phase = PARALLEL_SERVICE_REFILL;
+      }
+#endif
+#if ENABLE_PARALLEL_SPLIT_SELECTED_CAPTURE && ENABLE_PARALLEL_SELECTED_COMMAND
+    } else if (parallel_service_phase == PARALLEL_SERVICE_CAPTURE_SELECTED) {
+      if (selected_capture_pending) {
+        RedexPair captured_active_pair;
+        ap_uint<1> lane_has_candidate =
+            active_pair_queue_peek_local(
+                &reducer_lanes[selected_capture_lane_index],
+                &captured_active_pair);
+        selected_capture_pending = 0;
+        if (lane_has_candidate && executed_steps < maximum_steps) {
+          selected_command_valid = 1;
+          selected_command_lane_index = selected_capture_lane_index;
+          selected_command_active_pair = captured_active_pair;
+#if ENABLE_PARALLEL_SELECTED_COMPACT_CLASSIFY
+          selected_command_rule_kind = get_selected_compact_rule_kind(
+              captured_active_pair.left_port,
+              captured_active_pair.right_port);
+          parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+#elif ENABLE_PARALLEL_SPLIT_SELECTED_CLASSIFY
+          parallel_service_phase = PARALLEL_SERVICE_CLASSIFY;
+#else
+          selected_command_rule_kind = get_interaction_rule_kind(
+              captured_active_pair.left_port,
+              captured_active_pair.right_port);
+          parallel_service_phase = PARALLEL_SERVICE_EXECUTE;
+#endif
+        } else {
+          selected_command_valid = 0;
+          parallel_service_phase = PARALLEL_SERVICE_REFILL;
+        }
+      } else {
         parallel_service_phase = PARALLEL_SERVICE_REFILL;
       }
 #endif

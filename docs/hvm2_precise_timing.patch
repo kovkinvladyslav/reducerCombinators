@@ -1,0 +1,26 @@
+﻿diff --git a/build.rs b/build.rs
+--- a/build.rs
++++ b/build.rs
+@@ -6,7 +6,9 @@ fn main() {
+   println!("cargo:rerun-if-changed=src/hvm.c");
+   println!("cargo:rerun-if-changed=src/run.cu");
+   println!("cargo:rerun-if-changed=src/hvm.cu");
+-  println!("cargo:rustc-link-arg=-rdynamic");
++  if !cfg!(target_os = "windows") {
++    println!("cargo:rustc-link-arg=-rdynamic");
++  }
+ 
+   match cc::Build::new()
+       .file("src/run.c")
+diff --git a/src/main.rs b/src/main.rs
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -191,6 +191,6 @@ pub fn run(book: &hvm::Book) {
+   // Prints interactions and time
+   let itrs = net.itrs.load(std::sync::atomic::Ordering::Relaxed);
+   println!("- ITRS: {}", itrs);
+-  println!("- TIME: {:.2}s", duration.as_secs_f64());
+-  println!("- MIPS: {:.2}", itrs as f64 / duration.as_secs_f64() / 1_000_000.0);
++  println!("- TIME: {:.9}s", duration.as_secs_f64());
++  println!("- MIPS: {:.6}", itrs as f64 / duration.as_secs_f64() / 1_000_000.0);
+ }

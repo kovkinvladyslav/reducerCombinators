@@ -138,7 +138,7 @@ static Chapter4ScenarioResult run_call_constructor_test() {
   } else if (scenario_result.statistics.performed_call_count != 1) {
     fail_scenario(&scenario_result, "expected one call interaction");
   } else if (allocated_node_count != 6) {
-    fail_scenario(&scenario_result, "constructor call did not allocate one runtime node");
+    fail_scenario(&scenario_result, "constructor call did not allocate one execution node");
   } else if (get_first_auxiliary_port(node_memory[5]) != make_u24_number_port(1) ||
              get_second_auxiliary_port(node_memory[5]) != make_u24_number_port(2)) {
     fail_scenario(&scenario_result, "copied constructor node has incorrect auxiliary ports");

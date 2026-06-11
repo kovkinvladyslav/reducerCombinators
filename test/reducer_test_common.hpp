@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <cmath>
+#include <string>
 
 #include "../src/reducer_core.hpp"
 #include "../src/reducer_core_parallel.hpp"

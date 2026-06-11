@@ -922,7 +922,7 @@ static ProgramBenchmarkResult run_parallel_independent_void_batch_benchmark() {
   result.observed_output = (unsigned int)result.statistics.performed_void_count;
   if (result.status_code != REDUCER_STATUS_SUCCESS ||
       result.statistics.performed_void_count != 8 ||
-      result.statistics.dual_commit_cycle_count == 0) {
+      (REDUCER_LANE_COUNT > 1 && result.statistics.dual_commit_cycle_count == 0)) {
     fail_program_benchmark(&result, "parallel void batch did not use dual commits");
   } else {
     pass_program_benchmark(&result);
@@ -960,7 +960,7 @@ static ProgramBenchmarkResult run_parallel_mixed_contention_batch_benchmark() {
       &result);
   result.observed_output = (unsigned int)result.statistics.substitution_conflict_count;
   if (result.status_code != REDUCER_STATUS_MAXIMUM_STEPS_REACHED ||
-      result.statistics.substitution_conflict_count == 0 ||
+      (REDUCER_LANE_COUNT > 1 && result.statistics.substitution_conflict_count == 0) ||
       result.statistics.performed_link_count < 2) {
     fail_program_benchmark(&result, "parallel mixed workload did not expose substitution contention");
   } else {

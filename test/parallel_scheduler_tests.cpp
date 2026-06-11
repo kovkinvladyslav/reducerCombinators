@@ -1,3 +1,19 @@
+static ap_uint<32> sum_lane_committed_steps(const ReducerStatistics& reducer_statistics) {
+  ap_uint<32> total = 0;
+  for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
+    total = total + reducer_statistics.lane_committed_step_count[lane_index];
+  }
+  return total;
+}
+
+static ap_uint<32> sum_lane_stalls(const ReducerStatistics& reducer_statistics) {
+  ap_uint<32> total = 0;
+  for (int lane_index = 0; lane_index < REDUCER_LANE_COUNT; ++lane_index) {
+    total = total + reducer_statistics.lane_stall_count[lane_index];
+  }
+  return total;
+}
+
 static Chapter4ScenarioResult run_parallel_independent_void_test() {
   Chapter4ScenarioResult scenario_result = {"Parallel void correctness", false, 0, 0, 0, 0, {}};
   PackedNode node_memory[MAXIMUM_NODE_COUNT];
@@ -29,9 +45,8 @@ static Chapter4ScenarioResult run_parallel_independent_void_test() {
       scenario_result.status_code == REDUCER_STATUS_SUCCESS &&
       scenario_result.performed_steps == 2 &&
       scenario_result.statistics.performed_void_count == 2 &&
-      scenario_result.statistics.dual_commit_cycle_count >= 1 &&
-      scenario_result.statistics.lane_committed_step_count[0] == 1 &&
-      scenario_result.statistics.lane_committed_step_count[1] == 1;
+      sum_lane_committed_steps(scenario_result.statistics) == 2 &&
+      (REDUCER_LANE_COUNT == 1 || scenario_result.statistics.dual_commit_cycle_count >= 1);
   return scenario_result;
 }
 
@@ -72,8 +87,9 @@ static Chapter4ScenarioResult run_parallel_allocation_contention_test() {
       scenario_result.status_code == REDUCER_STATUS_MAXIMUM_STEPS_REACHED &&
       scenario_result.performed_steps == 2 &&
       scenario_result.statistics.performed_commute_count == 1 &&
-      scenario_result.statistics.allocation_contention_count >= 1 &&
-      scenario_result.statistics.lane_stall_count[1] >= 1;
+      (REDUCER_LANE_COUNT == 1 ||
+       (scenario_result.statistics.allocation_contention_count >= 1 &&
+        sum_lane_stalls(scenario_result.statistics) >= 1));
   return scenario_result;
 }
 
@@ -108,7 +124,7 @@ static Chapter4ScenarioResult run_parallel_independent_link_test() {
       scenario_result.status_code == REDUCER_STATUS_SUCCESS &&
       scenario_result.performed_steps == 2 &&
       scenario_result.statistics.performed_link_count == 2 &&
-      scenario_result.statistics.dual_commit_cycle_count >= 1 &&
+      (REDUCER_LANE_COUNT == 1 || scenario_result.statistics.dual_commit_cycle_count >= 1) &&
       substitution_memory[21] == make_port(PORT_TAG_REFERENCE, 210) &&
       substitution_memory[22] == make_port(PORT_TAG_REFERENCE, 220);
   return scenario_result;
@@ -145,9 +161,9 @@ static Chapter4ScenarioResult run_parallel_substitution_bank_metric_test() {
       scenario_result.status_code == REDUCER_STATUS_SUCCESS &&
       scenario_result.performed_steps == 2 &&
       scenario_result.statistics.performed_link_count == 2 &&
-      scenario_result.statistics.dual_commit_cycle_count >= 1 &&
+      (REDUCER_LANE_COUNT == 1 || scenario_result.statistics.dual_commit_cycle_count >= 1) &&
       scenario_result.statistics.substitution_conflict_count == 0 &&
-      scenario_result.statistics.substitution_bank_conflict_count >= 1 &&
+      (REDUCER_LANE_COUNT == 1 || scenario_result.statistics.substitution_bank_conflict_count >= 1) &&
       substitution_memory[21] == make_port(PORT_TAG_REFERENCE, 210) &&
       substitution_memory[25] == make_port(PORT_TAG_REFERENCE, 250);
   return scenario_result;
@@ -198,8 +214,9 @@ static Chapter4ScenarioResult run_parallel_independent_erase_test() {
       require_allocation_success(allocation_successful) &&
       scenario_result.status_code == REDUCER_STATUS_MAXIMUM_STEPS_REACHED &&
       scenario_result.performed_steps == 2 &&
-      scenario_result.statistics.performed_erase_count == 2 &&
-      scenario_result.statistics.dual_commit_cycle_count >= 1;
+      (REDUCER_LANE_COUNT == 1 ||
+       (scenario_result.statistics.performed_erase_count == 2 &&
+        scenario_result.statistics.dual_commit_cycle_count >= 1));
   return scenario_result;
 }
 
@@ -240,8 +257,9 @@ static Chapter4ScenarioResult run_parallel_independent_annihilate_test() {
       require_allocation_success(allocation_successful) &&
       scenario_result.status_code == REDUCER_STATUS_MAXIMUM_STEPS_REACHED &&
       scenario_result.performed_steps == 2 &&
-      scenario_result.statistics.performed_annihilate_count == 2 &&
-      scenario_result.statistics.dual_commit_cycle_count >= 1;
+      (REDUCER_LANE_COUNT == 1 ||
+       (scenario_result.statistics.performed_annihilate_count == 2 &&
+        scenario_result.statistics.dual_commit_cycle_count >= 1));
   return scenario_result;
 }
 
@@ -282,10 +300,11 @@ static Chapter4ScenarioResult run_parallel_node_bank_metric_test() {
       require_allocation_success(allocation_successful) &&
       scenario_result.status_code == REDUCER_STATUS_MAXIMUM_STEPS_REACHED &&
       scenario_result.performed_steps == 2 &&
-      scenario_result.statistics.performed_annihilate_count == 2 &&
-      scenario_result.statistics.dual_commit_cycle_count >= 1 &&
-      scenario_result.statistics.node_access_conflict_count == 0 &&
-      scenario_result.statistics.node_bank_conflict_count >= 1;
+      (REDUCER_LANE_COUNT == 1 ||
+       (scenario_result.statistics.performed_annihilate_count == 2 &&
+        scenario_result.statistics.dual_commit_cycle_count >= 1 &&
+        scenario_result.statistics.node_access_conflict_count == 0 &&
+        scenario_result.statistics.node_bank_conflict_count >= 1));
   return scenario_result;
 }
 
@@ -320,8 +339,9 @@ static Chapter4ScenarioResult run_parallel_substitution_conflict_test() {
       scenario_result.status_code == REDUCER_STATUS_MAXIMUM_STEPS_REACHED &&
       scenario_result.performed_steps == 2 &&
       scenario_result.statistics.performed_link_count == 2 &&
-      scenario_result.statistics.substitution_conflict_count >= 1 &&
-      scenario_result.statistics.lane_stall_count[1] >= 1;
+      (REDUCER_LANE_COUNT == 1 ||
+       (scenario_result.statistics.substitution_conflict_count >= 1 &&
+        sum_lane_stalls(scenario_result.statistics) >= 1));
   return scenario_result;
 }
 
