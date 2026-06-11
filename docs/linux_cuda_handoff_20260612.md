@@ -79,6 +79,69 @@ Old HVM2 C threaded data should not be used as primary comparison. The generated
 
 For small examples, thread creation and synchronization dominate the measured time. Some high-thread runs also ended with segmentation fault.
 
+## Linux run status on 2026-06-12
+
+This handoff was attempted on Ubuntu 24.04.4 LTS under kernel
+`6.17.0-23-generic`.
+
+Dependency setup could not install CUDA packages because `sudo` requires an
+interactive password in this session:
+
+```text
+sudo: a terminal is required to read the password
+sudo: a password is required
+```
+
+The local NVIDIA stack is also not ready for CUDA measurement:
+
+```text
+nvidia-smi: couldn't communicate with the NVIDIA driver
+nvcc: command not found
+```
+
+HVM2 was cloned to `/tmp/HVM2`, `docs/hvm2_precise_timing.patch` was applied,
+and `cargo build --release` completed. The build emitted:
+
+```text
+WARNING: CUDA compiler not found. HVM will not be able to run on GPU.
+```
+
+The requested CUDA sweep was still executed to capture the failure mode:
+
+```bash
+python3 tools/hvm2_cuda_sum_tree_sweep.py \
+  --hvm /tmp/HVM2/target/release/hvm \
+  --mode cuda \
+  --runs 30 \
+  --sizes 16 32 64 128 \
+  --out docs/results/raw/hvm2_cuda_sum_tree_linux.csv
+```
+
+All CUDA rows failed with `CUDA runtime not available!`, which confirms that no
+valid HVM2 CUDA timing can be reported from this machine yet.
+
+The fallback Rust sweep did complete:
+
+```bash
+python3 tools/hvm2_cuda_sum_tree_sweep.py \
+  --hvm /tmp/HVM2/target/release/hvm \
+  --mode rust \
+  --runs 100 \
+  --sizes 16 32 64 128 \
+  --out docs/results/raw/hvm2_rust_sum_tree_linux.csv
+```
+
+| n | runs ok | result | ITRS | avg time, us | min time, us | max time, us | avg MIPS |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 16 | 100 | 120 | 38 | 4.909 | 3.771 | 13.340 | 8.169 |
+| 32 | 100 | 496 | 78 | 5.971 | 4.819 | 14.248 | 13.361 |
+| 64 | 100 | 2016 | 158 | 9.484 | 7.194 | 73.544 | 18.131 |
+| 128 | 100 | 8128 | 318 | 18.640 | 15.645 | 59.086 | 18.280 |
+
+Use `docs/results/raw/hvm2_rust_sum_tree_linux.csv` as the Linux CPU fallback
+baseline. Do not use `docs/results/raw/hvm2_cuda_sum_tree_linux.csv` as a timing
+comparison; it documents environment failure only.
+
 
 ## Linux dependency setup
 
@@ -143,4 +206,3 @@ The strongest comparison will be:
 - HVM2 Rust: fallback CPU baseline if CUDA fails.
 
 For the reducer, mention that the reported logical scheduler cycles and RTL cycles are different. Logical cycles describe how many batches of independent active pairs are handled by the parallel scheduler. RTL cycles include HLS control, initialization, result readback, and generated hardware scheduling.
-

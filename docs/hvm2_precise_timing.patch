@@ -1,4 +1,4 @@
-﻿diff --git a/build.rs b/build.rs
+diff --git a/build.rs b/build.rs
 --- a/build.rs
 +++ b/build.rs
 @@ -6,7 +6,9 @@ fn main() {

@@ -1,0 +1,5 @@
+benchmark,mode,n,runs_requested,runs_ok,result_values,expected_result,itrs_values,avg_time_seconds,avg_time_us,min_time_us,max_time_us,stdev_time_us,avg_mips,min_mips,max_mips,avg_wall_time_us,failures,first_failure,program_file
+sum_tree,hvm_run,16,100,100,120,120,38,4.90922e-06,4.90922,3.771,13.34,1.505397921018247,8.16902791,2.848576,10.076903,1500.6222099964361,0,,docs/results/raw/hvm2_generated/hvm_sum_tree_16.hvm
+sum_tree,hvm_run,32,100,100,496,496,78,5.97081e-06,5.97081,4.819,14.248,1.2206115348836046,13.36091647,5.474453,16.185931,1494.1841200027284,0,,docs/results/raw/hvm2_generated/hvm_sum_tree_32.hvm
+sum_tree,hvm_run,64,100,100,2016,2016,158,9.48385e-06,9.48385,7.194,73.544,6.703111795647563,18.13119578,2.148374,21.962747,1562.6036599906001,0,,docs/results/raw/hvm2_generated/hvm_sum_tree_64.hvm
+sum_tree,hvm_run,128,100,100,8128,8128,318,1.86402e-05,18.6402,15.645,59.086000000000006,7.16534829593232,18.280451629999998,5.381986,20.325983,1723.1633800020063,0,,docs/results/raw/hvm2_generated/hvm_sum_tree_128.hvm

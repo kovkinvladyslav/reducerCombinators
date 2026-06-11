@@ -1,9 +1,30 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Ubuntu/Debian setup for continuing HVM2 CUDA measurements.
-# This installs the generic build dependencies. CUDA Toolkit itself may need
-# NVIDIA's official repository if your distro package is too old or unavailable.
+# This installs build dependencies, CUDA Toolkit, and the NVIDIA kernel module
+# package for the currently running Ubuntu HWE kernel.
+
+kernel_version="$(uname -r)"
+nvidia_module_package="linux-modules-nvidia-580-open-${kernel_version}"
+
+if ! sudo -n true 2>/dev/null; then
+  cat >&2 <<EOF
+ERROR: passwordless sudo is not available in this session.
+
+Run this locally first, then rerun this script:
+
+  sudo apt update
+  sudo apt install -y ${nvidia_module_package} nvidia-driver-580-open nvidia-cuda-toolkit
+  sudo reboot
+
+After reboot, verify:
+
+  nvidia-smi
+  nvcc --version
+EOF
+  exit 1
+fi
 
 sudo apt update
 sudo apt install -y \
@@ -15,6 +36,8 @@ sudo apt install -y \
   python3 \
   python3-venv \
   python3-pip \
+  "${nvidia_module_package}" \
+  nvidia-driver-580-open \
   nvidia-cuda-toolkit
 
 if ! command -v rustup >/dev/null 2>&1; then

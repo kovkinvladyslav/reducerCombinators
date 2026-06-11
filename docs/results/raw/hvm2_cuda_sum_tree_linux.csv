@@ -1,0 +1,5 @@
+benchmark,mode,n,runs_requested,runs_ok,result_values,expected_result,itrs_values,avg_time_seconds,avg_time_us,min_time_us,max_time_us,stdev_time_us,avg_mips,min_mips,max_mips,avg_wall_time_us,failures,first_failure,program_file
+sum_tree,hvm_run_cuda,16,30,0,,120,,,,,,,,,,,30,CUDA runtime not available!,docs/results/raw/hvm2_generated/hvm_sum_tree_16.hvm
+sum_tree,hvm_run_cuda,32,30,0,,496,,,,,,,,,,,30,CUDA runtime not available!,docs/results/raw/hvm2_generated/hvm_sum_tree_32.hvm
+sum_tree,hvm_run_cuda,64,30,0,,2016,,,,,,,,,,,30,CUDA runtime not available!,docs/results/raw/hvm2_generated/hvm_sum_tree_64.hvm
+sum_tree,hvm_run_cuda,128,30,0,,8128,,,,,,,,,,,30,CUDA runtime not available!,docs/results/raw/hvm2_generated/hvm_sum_tree_128.hvm

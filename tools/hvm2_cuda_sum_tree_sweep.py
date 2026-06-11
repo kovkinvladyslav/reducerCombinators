@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Generate HVM2 sum-tree programs and measure hvm run / run-cu.
 
 This script is intended for the Linux CUDA handoff. It does not require the
@@ -82,6 +82,11 @@ def run_one(hvm: Path, command: str, program: Path, timeout: float) -> tuple[boo
         return False, output, elapsed, "timeout"
 
 
+def summarize_failure(output: str, default: str) -> str:
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    return lines[0] if lines else default
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--hvm", required=True, type=Path, help="Path to HVM2 executable")
@@ -117,11 +122,14 @@ def main() -> int:
             for run_index in range(args.runs):
                 ok, output, wall_time, failure = run_one(args.hvm, command, program, args.timeout)
                 if not ok:
-                    failures.append(failure or output.strip().splitlines()[-1] if output.strip() else "nonzero_exit")
+                    failures.append(failure or summarize_failure(output, "nonzero_exit"))
                     continue
                 parsed = parse_hvm_output(output)
                 if parsed["result"] != str(expected):
-                    failures.append(f"unexpected_result:{parsed['result']}")
+                    if parsed["result"]:
+                        failures.append(f"unexpected_result:{parsed['result']}")
+                    else:
+                        failures.append(summarize_failure(output, "missing_result"))
                     continue
                 parsed_runs.append(parsed)
                 wall_times.append(wall_time)
