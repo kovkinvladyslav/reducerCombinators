@@ -79,6 +79,23 @@ Old HVM2 C threaded data should not be used as primary comparison. The generated
 
 For small examples, thread creation and synchronization dominate the measured time. Some high-thread runs also ended with segmentation fault.
 
+
+## Linux dependency setup
+
+A setup helper is included:
+
+```bash
+bash tools/setup_linux_cuda_hvm2_deps.sh
+```
+
+It installs the common Ubuntu/Debian packages needed for this experiment:
+
+```bash
+sudo apt install -y build-essential clang git curl pkg-config python3 python3-venv python3-pip nvidia-cuda-toolkit
+```
+
+If `nvcc --version` still does not work after this step, install CUDA Toolkit from NVIDIA's official repository and add `/usr/local/cuda/bin` to `PATH`.
+
 ## Linux steps
 
 Clone/build HVM2 separately:
@@ -126,3 +143,4 @@ The strongest comparison will be:
 - HVM2 Rust: fallback CPU baseline if CUDA fails.
 
 For the reducer, mention that the reported logical scheduler cycles and RTL cycles are different. Logical cycles describe how many batches of independent active pairs are handled by the parallel scheduler. RTL cycles include HLS control, initialization, result readback, and generated hardware scheduling.
+
