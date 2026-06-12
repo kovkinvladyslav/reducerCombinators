@@ -1,4 +1,5 @@
 diff --git a/build.rs b/build.rs
+index dd72c94..05546e3 100644
 --- a/build.rs
 +++ b/build.rs
 @@ -6,7 +6,9 @@ fn main() {
@@ -12,7 +13,144 @@ diff --git a/build.rs b/build.rs
  
    match cc::Build::new()
        .file("src/run.c")
+diff --git a/src/hvm.cu b/src/hvm.cu
+index ffa3401..3408ce6 100644
+--- a/src/hvm.cu
++++ b/src/hvm.cu
+@@ -11,6 +11,14 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ 
++#define CUDA_CHECK(call) do { \
++  cudaError_t err__ = (call); \
++  if (err__ != cudaSuccess) { \
++    fprintf(stderr, "CUDA_CHECK failed %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(err__)); \
++    exit(EXIT_FAILURE); \
++  } \
++} while (0)
++
+ // Integers
+ // --------
+ 
+@@ -29,11 +37,11 @@ typedef unsigned long long int u64;
+ const u64 S = 2520000000;
+ 
+ // Threads per Block
+-const u32 TPB_L2 = 7;
++const u32 TPB_L2 = 4;
+ const u32 TPB    = 1 << TPB_L2;
+ 
+ // Blocks per GPU
+-const u32 BPG_L2 = 7;
++const u32 BPG_L2 = 5;
+ const u32 BPG    = 1 << BPG_L2;
+ 
+ // Threads per GPU
+@@ -79,7 +87,7 @@ const Rule SWIT = 0x7;
+ 
+ // Constants
+ const Port FREE = 0x00000000;
+-const Port ROOT = 0xFFFFFFF8;
++const Port ROOT = 0x0FFFFFF8;
+ const Port NONE = 0xFFFFFFFF;
+ 
+ // Numbers
+@@ -127,16 +135,16 @@ struct RBag {
+ };
+ 
+ // Local Net
+-const u32 L_NODE_LEN = 0x2000;
+-const u32 L_VARS_LEN = 0x2000;
++const u32 L_NODE_LEN = 0x1000;
++const u32 L_VARS_LEN = 0x1000;
+ struct LNet {
+   Pair node_buf[L_NODE_LEN];
+   Port vars_buf[L_VARS_LEN];
+ };
+ 
+ // Global Net
+-const u32 G_NODE_LEN = 1 << 29; // max 536m nodes
+-const u32 G_VARS_LEN = 1 << 29; // max 536m vars
++const u32 G_NODE_LEN = 1 << 25; // small-GPU benchmark profile
++const u32 G_VARS_LEN = 1 << 25; // small-GPU benchmark profile
+ const u32 G_RBAG_LEN = TPB * BPG * RLEN * 3; // max 4m redexes
+ struct GNet {
+   u32  rbag_use_A; // total rbag redex count (buffer A)
+@@ -1775,25 +1783,27 @@ __global__ void initialize(GNet* gnet) {
+ 
+ GNet* gnet_create() {
+   GNet *gnet;
+-  cudaMalloc((void**)&gnet, sizeof(GNet));
++  CUDA_CHECK(cudaMalloc((void**)&gnet, sizeof(GNet)));
++  CUDA_CHECK(cudaMemset(gnet, 0, sizeof(GNet)));
+   initialize<<<BPG, TPB>>>(gnet);
+-  //cudaMemset(gnet, 0, sizeof(GNet));
++  CUDA_CHECK(cudaGetLastError());
++  CUDA_CHECK(cudaDeviceSynchronize());
+   return gnet;
+ }
+ 
+ u32 gnet_get_rlen(GNet* gnet, u32 turn) {
+   u32 rbag_use;
+   if (turn % 2 == 0) {
+-    cudaMemcpy(&rbag_use, &gnet->rbag_use_B, sizeof(u32), cudaMemcpyDeviceToHost);
++    CUDA_CHECK(cudaMemcpy(&rbag_use, &gnet->rbag_use_B, sizeof(u32), cudaMemcpyDeviceToHost));
+   } else {
+-    cudaMemcpy(&rbag_use, &gnet->rbag_use_A, sizeof(u32), cudaMemcpyDeviceToHost);
++    CUDA_CHECK(cudaMemcpy(&rbag_use, &gnet->rbag_use_A, sizeof(u32), cudaMemcpyDeviceToHost));
+   }
+   return rbag_use;
+ }
+ 
+ u64 gnet_get_itrs(GNet* gnet) {
+   u64 itrs;
+-  cudaMemcpy(&itrs, &gnet->itrs, sizeof(u64), cudaMemcpyDeviceToHost);
++  CUDA_CHECK(cudaMemcpy(&itrs, &gnet->itrs, sizeof(u64), cudaMemcpyDeviceToHost));
+   return itrs;
+ }
+ 
+@@ -1805,6 +1815,8 @@ u64 gnet_get_leak(GNet* gnet) {
+ 
+ void gnet_boot_redex(GNet* gnet, Pair redex) {
+   boot_redex<<<BPG, TPB>>>(gnet, redex);
++  CUDA_CHECK(cudaGetLastError());
++  CUDA_CHECK(cudaDeviceSynchronize());
+ }
+ 
+ void gnet_normalize(GNet* gnet) {
+@@ -1820,7 +1832,10 @@ void gnet_normalize(GNet* gnet) {
+     //cudaDeviceSynchronize();
+ 
+     evaluator<<<BPG, TPB, sizeof(LNet)>>>(gnet);
++    CUDA_CHECK(cudaGetLastError());
+     inbetween<<<1, 1>>>(gnet);
++    CUDA_CHECK(cudaGetLastError());
++    CUDA_CHECK(cudaDeviceSynchronize());
+     //cudaDeviceSynchronize();
+ 
+     //count_memory<<<BPG, TPB>>>(gnet);
+@@ -2330,7 +2345,7 @@ extern "C" void hvm_cu(u32* book_buffer) {
+   }
+ 
+   // Configures Shared Memory Size
+-  cudaFuncSetAttribute(evaluator, cudaFuncAttributeMaxDynamicSharedMemorySize, sizeof(LNet));
++  CUDA_CHECK(cudaFuncSetAttribute(evaluator, cudaFuncAttributeMaxDynamicSharedMemorySize, sizeof(LNet)));
+ 
+   // Creates a new GNet
+   GNet* gnet = gnet_create();
+@@ -2392,8 +2407,8 @@ extern "C" void hvm_cu(u32* book_buffer) {
+   // Prints interactions, time and MIPS
+   printf("- ITRS: %llu\n", gnet_get_itrs(gnet));
+   printf("- LEAK: %llu\n", gnet_get_leak(gnet));
+-  printf("- TIME: %.2fs\n", duration);
+-  printf("- MIPS: %.2f\n", (double)gnet_get_itrs(gnet) / duration / 1000000.0);
++  printf("- TIME: %.9fs\n", duration);
++  printf("- MIPS: %.6f\n", (double)gnet_get_itrs(gnet) / duration / 1000000.0);
+ }
+ 
+ #ifdef WITH_MAIN
 diff --git a/src/main.rs b/src/main.rs
+index dee219a..0a2e4dc 100644
 --- a/src/main.rs
 +++ b/src/main.rs
 @@ -191,6 +191,6 @@ pub fn run(book: &hvm::Book) {

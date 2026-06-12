@@ -81,46 +81,52 @@ For small examples, thread creation and synchronization dominate the measured ti
 
 ## Linux run status on 2026-06-12
 
-This handoff was attempted on Ubuntu 24.04.4 LTS under kernel
-`6.17.0-23-generic`.
+This handoff was completed on Ubuntu 24.04.4 LTS. The machine was first on
+kernel `6.17.0-23-generic`, where NVIDIA userspace was installed but no matching
+NVIDIA kernel module existed. CUDA was made usable by installing the HWE NVIDIA
+580 open module/toolkit packages, rebooting into `6.17.0-35-generic`, and
+building HVM2 with `gcc-12/g++-12`.
 
-Dependency setup could not install CUDA packages because `sudo` requires an
-interactive password in this session:
-
-```text
-sudo: a terminal is required to read the password
-sudo: a password is required
-```
-
-The local NVIDIA stack is also not ready for CUDA measurement:
+Post-reboot device/toolchain checks:
 
 ```text
-nvidia-smi: couldn't communicate with the NVIDIA driver
-nvcc: command not found
+GPU: NVIDIA GeForce GTX 1650
+Driver: 580.159.03
+Driver-reported CUDA version: 13.0
+nvcc: CUDA compilation tools 12.0, V12.0.140
 ```
 
-HVM2 was cloned to `/tmp/HVM2`, `docs/hvm2_precise_timing.patch` was applied,
-and `cargo build --release` completed. The build emitted:
+HVM2 CUDA required the local patch in `docs/hvm2_precise_timing.patch`. Besides
+precise timing output, the patch:
 
-```text
-WARNING: CUDA compiler not found. HVM will not be able to run on GPU.
-```
+- avoids the Windows `-rdynamic` link argument;
+- uses a GTX-1650-compatible CUDA geometry and memory profile;
+- moves CUDA `ROOT` inside the reduced variable memory;
+- zero-initializes the CUDA graph state;
+- adds CUDA error checks for launch/memory failures.
 
-The requested CUDA sweep was still executed to capture the failure mode:
+The validated CUDA sweep was run through the strict helper:
 
 ```bash
-python3 tools/hvm2_cuda_sum_tree_sweep.py \
-  --hvm /tmp/HVM2/target/release/hvm \
-  --mode cuda \
-  --runs 30 \
-  --sizes 16 32 64 128 \
-  --out docs/results/raw/hvm2_cuda_sum_tree_linux.csv
+bash tools/run_hvm2_cuda_linux_sweep.sh
 ```
 
-All CUDA rows failed with `CUDA runtime not available!`, which confirms that no
-valid HVM2 CUDA timing can be reported from this machine yet.
+The helper rebuilt `/tmp/HVM2` with CUDA support, ran a `n=16` sanity check,
+then ran `30` CUDA runs for each size. All rows passed validation:
 
-The fallback Rust sweep did complete:
+| n | runs ok | result | ITRS | avg time, us | min time, us | max time, us | avg MIPS |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 16 | 30 | 120 | 38 | 11996.167 | 11888.000 | 12160.000 | 0.003168 |
+| 32 | 30 | 496 | 78 | 12101.667 | 11989.000 | 12424.000 | 0.006446 |
+| 64 | 30 | 2016 | 158 | 12342.100 | 12205.000 | 12558.000 | 0.012802 |
+| 128 | 30 | 8128 | 318 | 13496.700 | 13324.000 | 13681.000 | 0.023562 |
+
+CUDA source data:
+
+- `docs/results/raw/hvm2_cuda_sum_tree_linux.csv`
+- per-run logs in `docs/results/raw/hvm2_cuda_logs/`
+
+The fallback Rust sweep also completed:
 
 ```bash
 python3 tools/hvm2_cuda_sum_tree_sweep.py \
@@ -138,9 +144,9 @@ python3 tools/hvm2_cuda_sum_tree_sweep.py \
 | 64 | 100 | 2016 | 158 | 9.484 | 7.194 | 73.544 | 18.131 |
 | 128 | 100 | 8128 | 318 | 18.640 | 15.645 | 59.086 | 18.280 |
 
-Use `docs/results/raw/hvm2_rust_sum_tree_linux.csv` as the Linux CPU fallback
-baseline. Do not use `docs/results/raw/hvm2_cuda_sum_tree_linux.csv` as a timing
-comparison; it documents environment failure only.
+Use `docs/results/raw/hvm2_cuda_sum_tree_linux.csv` for the Linux CUDA
+comparison, and `docs/results/raw/hvm2_rust_sum_tree_linux.csv` as the Linux CPU
+fallback/baseline.
 
 
 ## Linux dependency setup
@@ -161,26 +167,23 @@ If `nvcc --version` still does not work after this step, install CUDA Toolkit fr
 
 ## Linux steps
 
-Clone/build HVM2 separately:
-
-```bash
-git clone https://github.com/HigherOrderCO/HVM2.git
-cd HVM2
-# Optional: apply precise output patch from this repo
-# git apply /path/to/reducerCombinators/docs/hvm2_precise_timing.patch
-cargo build --release
-./target/release/hvm run-cu /path/to/example.hvm
-```
-
-Run the sweep from this repo:
+The strict helper can clone/build HVM2 separately under `/tmp/HVM2`, apply the
+local CUDA patch, and run the sweep:
 
 ```bash
 cd /path/to/reducerCombinators
+bash tools/run_hvm2_cuda_linux_sweep.sh
+```
+
+To run the raw sweep manually after building a patched HVM2 binary:
+
+```bash
 python3 tools/hvm2_cuda_sum_tree_sweep.py \
   --hvm /path/to/HVM2/target/release/hvm \
   --mode cuda \
   --runs 30 \
   --sizes 16 32 64 128 \
+  --log-dir docs/results/raw/hvm2_cuda_logs \
   --out docs/results/raw/hvm2_cuda_sum_tree_linux.csv
 ```
 

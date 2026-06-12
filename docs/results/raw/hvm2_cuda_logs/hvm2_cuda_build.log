@@ -1,0 +1,49 @@
+   Compiling hvm v2.0.22 (/tmp/HVM2)
+warning: hvm@2.0.22: src/run.cu(69): warning #68-D: integer conversion resulted in a change of sign
+warning: hvm@2.0.22: 
+warning: hvm@2.0.22: Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+warning: hvm@2.0.22: 
+warning: hvm@2.0.22: src/run.cu(782): warning #2464-D: conversion from a string literal to "char *" is deprecated
+warning: hvm@2.0.22: 
+warning: hvm@2.0.22: src/run.cu(69): warning #68-D: integer conversion resulted in a change of sign
+warning: hvm@2.0.22: 
+warning: hvm@2.0.22: Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+warning: hvm@2.0.22: 
+warning: hvm@2.0.22: src/run.cu(782): warning #2464-D: conversion from a string literal to "char *" is deprecated
+warning: hvm@2.0.22: 
+warning: hvm@2.0.22: src/hvm.cu: In function ‘Numb new_f24(f32)’:
+warning: hvm@2.0.22: src/hvm.cu:512:14: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+warning: hvm@2.0.22:   512 |   u32 bits = *(u32*)&val;
+warning: hvm@2.0.22:       |             ~^~~~~~~~~~~~
+warning: hvm@2.0.22: src/hvm.cu: In function ‘f32 get_f24(Numb)’:
+warning: hvm@2.0.22: src/hvm.cu:524:10: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
+warning: hvm@2.0.22:   524 |   return *(f32*)&bits;
+warning: hvm@2.0.22:       |         ~^~~~~~~~~~~~~
+warning: hvm@2.0.22: src/hvm.cu: In function ‘void gnet_normalize(GNet*)’:
+warning: hvm@2.0.22: src/hvm.cu:1825:5: warning: variable ‘itrs’ set but not used [-Wunused-but-set-variable]
+warning: hvm@2.0.22:  1825 |   u64 itrs = 0;
+warning: hvm@2.0.22:       |     ^~~~
+warning: hvm@2.0.22: src/run.cu: In function ‘Port gnet_inject_io_err_type(GNet*)’:
+warning: hvm@2.0.22: src/run.cu:440:29: warning: missing initializer for member ‘IOError::val’ [-Wmissing-field-initializers]
+warning: hvm@2.0.22:   440 |   IOError io_error = {
+warning: hvm@2.0.22:       |                             ^
+warning: hvm@2.0.22: src/run.cu: In function ‘Port gnet_inject_io_err_name(GNet*)’:
+warning: hvm@2.0.22: src/run.cu:449:29: warning: missing initializer for member ‘IOError::val’ [-Wmissing-field-initializers]
+warning: hvm@2.0.22:   449 |   IOError io_error = {
+warning: hvm@2.0.22:       |                             ^
+warning: hvm@2.0.22: src/run.cu: In function ‘Port io_get_time(GNet*, Port)’:
+warning: hvm@2.0.22: src/run.cu:720:35: warning: unused parameter ‘argm’ [-Wunused-parameter]
+warning: hvm@2.0.22:   720 | Port io_get_time(GNet* gnet, Port argm) {
+warning: hvm@2.0.22:       |                              ~~~~~^~~~
+warning: hvm@2.0.22: src/run.cu: In function ‘Port io_dl_close(GNet*, Book*, Port)’:
+warning: hvm@2.0.22: src/run.cu:819:36: warning: unused parameter ‘book’ [-Wunused-parameter]
+warning: hvm@2.0.22:   819 | Port io_dl_close(GNet* gnet, Book* book, Port argm) {
+warning: hvm@2.0.22:       |                              ~~~~~~^~~~
+warning: hvm@2.0.22: src/run.cu: In function ‘Port io_close(GNet*, Port)’:
+warning: hvm@2.0.22: src/run.cu:624:32: warning: pointer may be used after ‘int fclose(FILE*)’ [-Wuse-after-free]
+warning: hvm@2.0.22:   624 |     return gnet_inject_io_err_inner(gnet, new_port(NUM, new_i24(ferror(fp))));
+warning: hvm@2.0.22:       |        ~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+warning: hvm@2.0.22: src/run.cu:623:11: note: call to ‘int fclose(FILE*)’ here
+warning: hvm@2.0.22:   623 |   if (fclose(fp) != 0) {
+warning: hvm@2.0.22:       |     ~~~~~~^~~~
+    Finished `release` profile [optimized] target(s) in 17.17s

@@ -96,10 +96,13 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=60.0)
     parser.add_argument("--work-dir", type=Path, default=Path("docs/results/raw/hvm2_generated"))
     parser.add_argument("--out", type=Path, default=Path("docs/results/raw/hvm2_cuda_sum_tree_linux.csv"))
+    parser.add_argument("--log-dir", type=Path, default=None)
     args = parser.parse_args()
 
     args.work_dir.mkdir(parents=True, exist_ok=True)
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    if args.log_dir is not None:
+        args.log_dir.mkdir(parents=True, exist_ok=True)
 
     modes = []
     if args.mode in ("rust", "both"):
@@ -120,7 +123,11 @@ def main() -> int:
             failures: list[str] = []
 
             for run_index in range(args.runs):
+                print(f"{mode_name} n={n} run={run_index + 1}/{args.runs} ...", flush=True)
                 ok, output, wall_time, failure = run_one(args.hvm, command, program, args.timeout)
+                if args.log_dir is not None:
+                    log_file = args.log_dir / f"{mode_name}_n{n}_run{run_index + 1:03d}.log"
+                    log_file.write_text(output, encoding="utf-8")
                 if not ok:
                     failures.append(failure or summarize_failure(output, "nonzero_exit"))
                     continue
