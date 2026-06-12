@@ -1,4 +1,20 @@
+   Compiling libc v0.2.155
+   Compiling utf8parse v0.2.1
+   Compiling anstyle-query v1.0.3
+   Compiling is_terminal_polyfill v1.70.0
+   Compiling anstyle v1.0.7
+   Compiling colorchoice v1.0.1
+   Compiling strsim v0.11.1
+   Compiling clap_lex v0.7.0
+   Compiling cc v1.0.97
+   Compiling highlight_error v0.1.1
+   Compiling anstyle-parse v0.2.4
+   Compiling TSPL v0.0.13
+   Compiling anstream v0.6.14
+   Compiling clap_builder v4.5.2
+   Compiling num_cpus v1.16.0
    Compiling hvm v2.0.22 (/tmp/HVM2)
+   Compiling clap v4.5.4
 warning: hvm@2.0.22: src/run.cu(69): warning #68-D: integer conversion resulted in a change of sign
 warning: hvm@2.0.22: 
 warning: hvm@2.0.22: Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
@@ -19,9 +35,9 @@ warning: hvm@2.0.22: src/hvm.cu: In function ‘f32 get_f24(Numb)’:
 warning: hvm@2.0.22: src/hvm.cu:524:10: warning: dereferencing type-punned pointer will break strict-aliasing rules [-Wstrict-aliasing]
 warning: hvm@2.0.22:   524 |   return *(f32*)&bits;
 warning: hvm@2.0.22:       |         ~^~~~~~~~~~~~~
-warning: hvm@2.0.22: src/hvm.cu: In function ‘void gnet_normalize(GNet*)’:
-warning: hvm@2.0.22: src/hvm.cu:1825:5: warning: variable ‘itrs’ set but not used [-Wunused-but-set-variable]
-warning: hvm@2.0.22:  1825 |   u64 itrs = 0;
+warning: hvm@2.0.22: src/hvm.cu: In function ‘double gnet_normalize(GNet*)’:
+warning: hvm@2.0.22: src/hvm.cu:1838:5: warning: variable ‘itrs’ set but not used [-Wunused-but-set-variable]
+warning: hvm@2.0.22:  1838 |   u64 itrs = 0;
 warning: hvm@2.0.22:       |     ^~~~
 warning: hvm@2.0.22: src/run.cu: In function ‘Port gnet_inject_io_err_type(GNet*)’:
 warning: hvm@2.0.22: src/run.cu:440:29: warning: missing initializer for member ‘IOError::val’ [-Wmissing-field-initializers]
@@ -46,4 +62,4 @@ warning: hvm@2.0.22:       |        ~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
 warning: hvm@2.0.22: src/run.cu:623:11: note: call to ‘int fclose(FILE*)’ here
 warning: hvm@2.0.22:   623 |   if (fclose(fp) != 0) {
 warning: hvm@2.0.22:       |     ~~~~~~^~~~
-    Finished `release` profile [optimized] target(s) in 17.17s
+    Finished `release` profile [optimized] target(s) in 16.98s

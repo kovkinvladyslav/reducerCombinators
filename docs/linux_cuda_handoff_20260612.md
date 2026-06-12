@@ -112,14 +112,17 @@ bash tools/run_hvm2_cuda_linux_sweep.sh
 ```
 
 The helper rebuilt `/tmp/HVM2` with CUDA support, ran a `n=16` sanity check,
-then ran `30` CUDA runs for each size. All rows passed validation:
+then ran `30` CUDA runs for each size. All rows passed validation. The host
+time/MIPS columns are the end-to-end `hvm run-cu` timing printed by HVM2, while
+the GPU columns are the fixed CUDA-kernel timing fields from `GPU_TIME` and
+`GPU_MIPS`:
 
-| n | runs ok | result | ITRS | avg time, us | min time, us | max time, us | avg MIPS |
-|---:|---:|---:|---:|---:|---:|---:|---:|
-| 16 | 30 | 120 | 38 | 11996.167 | 11888.000 | 12160.000 | 0.003168 |
-| 32 | 30 | 496 | 78 | 12101.667 | 11989.000 | 12424.000 | 0.006446 |
-| 64 | 30 | 2016 | 158 | 12342.100 | 12205.000 | 12558.000 | 0.012802 |
-| 128 | 30 | 8128 | 318 | 13496.700 | 13324.000 | 13681.000 | 0.023562 |
+| n | runs ok | result | ITRS | avg host time, us | avg host MIPS | avg GPU time, us | min GPU time, us | max GPU time, us | avg GPU MIPS |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 16 | 30 | 120 | 38 | 12018.167 | 0.003162 | 15.487 | 11.104 | 44.480 | 2.716999 |
+| 32 | 30 | 496 | 78 | 12086.400 | 0.006454 | 15.150 | 12.064 | 38.912 | 5.584008 |
+| 64 | 30 | 2016 | 158 | 12298.600 | 0.012847 | 14.944 | 12.096 | 43.168 | 11.699298 |
+| 128 | 30 | 8128 | 318 | 13494.333 | 0.023566 | 15.408 | 11.168 | 36.608 | 22.550795 |
 
 CUDA source data:
 
