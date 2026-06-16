@@ -1,0 +1,16 @@
+interactReduce_live_demo/
+vivado_prepared_network_schematic/
+vivado_prepared_network_schematic_check/
+.cache/
+.Xil/
+_ide/
+hls/
+logs/
+reports/
+*.jou
+*.log
+*.hlscompile_summary
+*.hlsrun_*_summary
+compile_commands.json
+dfx_runtime.txt
+vitis-comp.json
